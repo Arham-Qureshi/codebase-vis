@@ -1,2 +1,4 @@
 .agents/
 docs/
+.agentignore
+node_modules
