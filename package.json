@@ -1,0 +1,32 @@
+{
+  "name": "agent-context",
+  "version": "1.0.0",
+  "description": "A local, zero-dependency CLI tool that parses codebases, builds dependency graphs, and outputs interactive architecture visualizations.",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "agent-context": "./bin/agent-context.js"
+  },
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Arham-Qureshi/agent-context.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Arham-Qureshi/agent-context/issues"
+  },
+  "homepage": "https://github.com/Arham-Qureshi/agent-context#readme",
+  "dependencies": {
+    "@clack/prompts": "^1.7.0",
+    "commander": "^15.0.0",
+    "picocolors": "^1.1.1"
+  }
+}
