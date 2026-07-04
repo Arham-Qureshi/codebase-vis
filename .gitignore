@@ -1,4 +1,5 @@
 .agents/
 docs/
+node_modules/
+codebase-out/
 .agentignore
-node_modules
