@@ -3,6 +3,8 @@ import pc from 'picocolors';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createOutDir, getOutDirPath } from '../utils/file-system.js';
+import { discoverFiles } from '../utils/traversal.js';
+import { detectTechStack } from '../parser/stack-detector.js';
 
 // default conatined in agent ingore file
 const DEFAULT_IGNORES = [
@@ -42,17 +44,33 @@ export async function initCommand() {
   p.outro(pc.dim('Edit the file to customise, then run ') + pc.cyan('agent-context generate'));
 }
 
-// generate => the primary workhorse, currently scaffolds the output directory
-export async function generateCommand() {
+// generate => the primary workhorse
+export async function generateCommand(options = {}) {
   console.clear();
   p.intro(pc.bgCyan(pc.black(' agent-context generate ')));
 
+  // parse --ignore flag into an array
+  const customIgnores = options.ignore
+    ? options.ignore.split(',').map(s => s.trim())
+    : [];
+
   const s = p.spinner();
+
   s.start('Setting up output directory');
-
   const outDir = await createOutDir();
-
   s.stop(pc.green(`Output directory ready at ${pc.bold(outDir)}`));
+
+  // Detecting tech stack
+  s.start('Detecting tech stack...');
+  const stack = await detectTechStack(process.cwd());
+  s.stop(pc.green(`Tech stack detected: ${pc.bold(stack.type)}`));
+
+  s.start('Discovering files...');
+  const files = await discoverFiles(process.cwd(), customIgnores);
+  s.stop(pc.green(`Found ${pc.bold(files.length)} files`));
+
+  p.log.info(pc.dim(`Files discovered: ${files.length}`));
+
   p.outro(pc.green('✔') + pc.dim(' Generation complete. Run ') + pc.cyan('agent-context serve') + pc.dim(' to view.'));
 }
 
