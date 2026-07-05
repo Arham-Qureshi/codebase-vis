@@ -5,6 +5,7 @@ import path from 'node:path';
 import { createOutDir, getOutDirPath } from '../utils/file-system.js';
 import { discoverFiles } from '../utils/traversal.js';
 import { detectTechStack } from '../parser/stack-detector.js';
+import { parseFile } from '../parser/index.js';
 
 // default conatined in agent ingore file
 const DEFAULT_IGNORES = [
@@ -69,7 +70,16 @@ export async function generateCommand(options = {}) {
   const files = await discoverFiles(process.cwd(), customIgnores);
   s.stop(pc.green(`Found ${pc.bold(files.length)} files`));
 
-  p.log.info(pc.dim(`Files discovered: ${files.length}`));
+  // Parsing AST and extracting dependencies
+  s.start('Parsing AST and extracting dependencies...');
+  const parsedData = [];
+  for (const file of files) {
+    const result = await parseFile(file);
+    if (result) parsedData.push(result);
+  }
+  s.stop(pc.green(`Parsed ${pc.bold(parsedData.length)} files successfully`));
+
+  p.log.info(pc.dim(`Parsed data length: ${parsedData.length}`));
 
   p.outro(pc.green('✔') + pc.dim(' Generation complete. Run ') + pc.cyan('agent-context serve') + pc.dim(' to view.'));
 }
