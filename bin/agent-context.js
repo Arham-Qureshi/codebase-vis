@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
-import { initCommand, generateCommand, cleanCommand } from '../src/cli/commands.js';
+import { initCommand, generateCommand, cleanCommand, serveCommand } from '../src/cli/commands.js';
 
 const program = new Command();
 
@@ -25,5 +25,11 @@ program
   .command('clean')
   .description('Delete the generated codebase-out/ directory')
   .action(cleanCommand);
+
+program
+  .command('serve')
+  .description('Start a local web server to view the generated graph')
+  .option('-p, --port <number>', 'Port to run on', '3000')
+  .action(serveCommand);
 
 program.parse(process.argv);
