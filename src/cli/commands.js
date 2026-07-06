@@ -2,12 +2,15 @@ import * as p from '@clack/prompts';
 import pc from 'picocolors';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { createOutDir, getOutDirPath } from '../utils/file-system.js';
+import http from 'node:http';
+import { exec } from 'node:child_process';
+import { createOutDir, getOutDirPath, safeWriteFile } from '../utils/file-system.js';
 import { discoverFiles } from '../utils/traversal.js';
 import { detectTechStack } from '../parser/stack-detector.js';
 import { parseFile } from '../parser/index.js';
 import { buildGraph } from '../graph/builder.js';
 import { exportGraphToJson } from '../graph/formatter.js';
+import { getHtmlTemplate } from '../templates/graph-template.js';
 
 // default conatined in agent ingore file
 const DEFAULT_IGNORES = [
@@ -89,6 +92,12 @@ export async function generateCommand(options = {}) {
   await exportGraphToJson(graph, outDir);
   s.stop(pc.green('graph.json written to codebase-out/'));
 
+  s.start('Generating HTML visualizer...');
+  const html = getHtmlTemplate();
+  const htmlPath = path.join(outDir, 'graph.html');
+  await safeWriteFile(htmlPath, html);
+  s.stop(pc.green('graph.html generated in codebase-out/'));
+
   p.log.info(pc.dim(`Parsed data length: ${parsedData.length}`));
 
   p.outro(pc.green('✔') + pc.dim(' Generation complete. Run ') + pc.cyan('agent-context serve') + pc.dim(' to view.'));
@@ -117,4 +126,70 @@ export async function cleanCommand() {
 
   s.stop(pc.green('codebase-out/ deleted successfully'));
   p.outro(pc.green('✔') + pc.dim(' Clean complete.'));
+}
+
+// MIME type lookup for the static file server
+const MIME_TYPES = {
+  '.html': 'text/html',
+  '.json': 'application/json',
+  '.js': 'application/javascript',
+  '.css': 'text/css',
+};
+
+// serve => spins up a local HTTP server to view the generated graph
+export async function serveCommand(options = {}) {
+  const port = parseInt(options.port, 10) || 3000;
+  const outDir = getOutDirPath();
+
+  p.intro(pc.bgMagenta(pc.white(' agent-context serve ')));
+
+  // check that codebase-out/ exists before trying to serve
+  try {
+    await fs.access(outDir);
+  } catch {
+    p.log.error(pc.red('codebase-out/ not found. Run ') + pc.cyan('agent-context generate') + pc.red(' first.'));
+    p.outro(pc.dim('Nothing to serve.'));
+    return;
+  }
+
+  const server = http.createServer(async (req, res) => {
+    // map "/" to "/graph.html"
+    const urlPath = req.url === '/' ? '/graph.html' : req.url;
+    const filePath = path.join(outDir, urlPath);
+    const ext = path.extname(filePath);
+    const contentType = MIME_TYPES[ext] || 'text/plain';
+
+    try {
+      const data = await fs.readFile(filePath);
+      res.writeHead(200, { 'Content-Type': contentType });
+      res.end(data);
+    } catch {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      res.end('404 Not Found');
+    }
+  });
+
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      p.log.error(pc.red(`Port ${port} is already in use. Try a different port with `) + pc.cyan(`--port <number>`));
+      p.outro(pc.dim('Server could not start.'));
+    } else {
+      p.log.error(pc.red(`Server error: ${err.message}`));
+    }
+  });
+
+  server.listen(port, () => {
+    const url = `http://localhost:${port}`;
+    p.log.success(pc.green(`Server running at ${pc.bold(url)}`));
+    p.log.info(pc.dim('Press Ctrl+C to stop the server.'));
+
+    // auto-open browser 
+    const platform = process.platform;
+    const openCmd = platform === 'darwin' ? 'open'
+      : platform === 'win32' ? 'start'
+        : 'xdg-open';
+
+    exec(`${openCmd} ${url}`, () => {
+    });
+  });
 }
