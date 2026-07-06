@@ -6,6 +6,8 @@ import { createOutDir, getOutDirPath } from '../utils/file-system.js';
 import { discoverFiles } from '../utils/traversal.js';
 import { detectTechStack } from '../parser/stack-detector.js';
 import { parseFile } from '../parser/index.js';
+import { buildGraph } from '../graph/builder.js';
+import { exportGraphToJson } from '../graph/formatter.js';
 
 // default conatined in agent ingore file
 const DEFAULT_IGNORES = [
@@ -78,6 +80,14 @@ export async function generateCommand(options = {}) {
     if (result) parsedData.push(result);
   }
   s.stop(pc.green(`Parsed ${pc.bold(parsedData.length)} files successfully`));
+
+  s.start('Building dependency graph...');
+  const graph = buildGraph(parsedData);
+  s.stop(pc.green(`Graph built: ${pc.bold(graph.order)} nodes, ${pc.bold(graph.size)} edges`));
+
+  s.start('Writing graph.json...');
+  await exportGraphToJson(graph, outDir);
+  s.stop(pc.green('graph.json written to codebase-out/'));
 
   p.log.info(pc.dim(`Parsed data length: ${parsedData.length}`));
 
