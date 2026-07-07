@@ -3,6 +3,10 @@ import path from 'node:path';
 import Parser from 'tree-sitter';
 import { grammar as jsGrammar, extractDependencies as jsExtractDeps, extractEntities as jsExtractEnts } from './javascript.js';
 import { grammar as tsGrammar, tsxGrammar, extractDependencies as tsExtractDeps, extractEntities as tsExtractEnts } from './typescript.js';
+import { grammar as pyGrammar, extractDependencies as pyExtractDeps, extractEntities as pyExtractEnts } from './python.js';
+import { grammar as cppGrammar, extractDependencies as cppExtractDeps, extractEntities as cppExtractEnts } from './cpp.js';
+import { grammar as htmlGrammar, extractDependencies as htmlExtractDeps, extractEntities as htmlExtractEnts } from './html.js';
+import { grammar as cssGrammar, extractDependencies as cssExtractDeps, extractEntities as cssExtractEnts } from './css.js';
 
 // maps extensions to their grammar and extraction functions
 const GRAMMAR_MAP = {
@@ -10,6 +14,12 @@ const GRAMMAR_MAP = {
   '.jsx': { grammar: jsGrammar,  extractDeps: jsExtractDeps, extractEnts: jsExtractEnts },
   '.ts':  { grammar: tsGrammar,  extractDeps: tsExtractDeps, extractEnts: tsExtractEnts },
   '.tsx': { grammar: tsxGrammar, extractDeps: tsExtractDeps, extractEnts: tsExtractEnts },
+  '.py':  { grammar: pyGrammar,  extractDeps: pyExtractDeps, extractEnts: pyExtractEnts },
+  '.cpp': { grammar: cppGrammar, extractDeps: cppExtractDeps, extractEnts: cppExtractEnts },
+  '.h':   { grammar: cppGrammar, extractDeps: cppExtractDeps, extractEnts: cppExtractEnts },
+  '.hpp':  { grammar: cppGrammar,  extractDeps: cppExtractDeps,  extractEnts: cppExtractEnts },
+  '.html': { grammar: htmlGrammar, extractDeps: htmlExtractDeps, extractEnts: htmlExtractEnts },
+  '.css':  { grammar: cssGrammar,  extractDeps: cssExtractDeps,  extractEnts: cssExtractEnts },
 };
 
 // reads a file, parses its AST, and returns a normalized object
