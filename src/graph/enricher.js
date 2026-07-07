@@ -74,6 +74,17 @@ export function enrichNodes(graph) {
       return;
     }
 
+    if (attributes.kind === 'entity') {
+      const absDir = path.dirname(node);
+      const info = dirColorMap.get(absDir);
+      setAttrs(graph, node, {
+        size: 3,
+        community: 'entities',
+        color: info ? info.color : '#94a3b8',
+      });
+      return;
+    }
+
     const absDir = path.dirname(node);
     const ext = path.extname(node).toLowerCase();
     const info = dirColorMap.get(absDir);
