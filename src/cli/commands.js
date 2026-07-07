@@ -51,9 +51,14 @@ export async function initCommand() {
 }
 
 // generate => the primary workhorse
-export async function generateCommand(options = {}) {
+export async function generateCommand(paths = [], options = {}) {
   console.clear();
   p.intro(pc.bgCyan(pc.black(' agent-context generate ')));
+
+  // resolve target directories — default to cwd if none specified
+  const targetDirs = paths.length > 0
+    ? paths.map(p => path.resolve(process.cwd(), p))
+    : [process.cwd()];
 
   // parse --ignore flag into an array
   const customIgnores = options.ignore
@@ -72,7 +77,11 @@ export async function generateCommand(options = {}) {
   s.stop(pc.green(`Tech stack detected: ${pc.bold(stack.type)}`));
 
   s.start('Discovering files...');
-  const files = await discoverFiles(process.cwd(), customIgnores);
+  const files = [];
+  for (const dir of targetDirs) {
+    const found = await discoverFiles(dir, customIgnores);
+    files.push(...found);
+  }
   s.stop(pc.green(`Found ${pc.bold(files.length)} files`));
 
   // Parsing AST and extracting dependencies
@@ -143,7 +152,6 @@ export async function serveCommand(options = {}) {
 
   p.intro(pc.bgMagenta(pc.white(' agent-context serve ')));
 
-  // check that codebase-out/ exists before trying to serve
   try {
     await fs.access(outDir);
   } catch {
@@ -153,7 +161,6 @@ export async function serveCommand(options = {}) {
   }
 
   const server = http.createServer(async (req, res) => {
-    // map "/" to "/graph.html"
     const urlPath = req.url === '/' ? '/graph.html' : req.url;
     const filePath = path.join(outDir, urlPath);
     const ext = path.extname(filePath);
