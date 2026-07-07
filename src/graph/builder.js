@@ -18,15 +18,23 @@ export function buildGraph(parsedData) {
   // Resolve dependencies
   for (const data of parsedData) {
     for (const dep of data.dependencies) {
-      const resolved = isRelative(dep)
-        ? path.resolve(path.dirname(data.id), dep)
-        : dep;
+      let target = null;
 
-      if (graph.hasNode(resolved)) {
-        // The dependency resolves to a local file that we parsed
-        graph.addEdge(data.id, resolved, { relationship: 'imports' });
+      if (isRelative(dep)) {
+        // Standard relative path (./foo, ../bar)
+        target = path.resolve(path.dirname(data.id), dep);
+      } else {
+        // in this case, either it will be a absolute path or a external file path
+        const localCandidate = path.resolve(path.dirname(data.id), dep);
+        if (graph.hasNode(localCandidate)) {
+          target = localCandidate;
+        }
+      }
+
+      if (target && graph.hasNode(target)) {
+        graph.addEdge(data.id, target, { relationship: 'imports' });
       } else if (!isRelative(dep)) {
-        // The dependency is an external NPM package or Node built-in
+        // External package or Node built-in
         graph.mergeNode(dep, { external: true, label: dep });
         graph.addEdge(data.id, dep, { relationship: 'imports' });
       }
