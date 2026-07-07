@@ -10,9 +10,14 @@ export function buildGraph(parsedData) {
 
   for (const data of parsedData) {
     graph.addNode(data.id, {
-      entities: data.entities,
       dependencies: data.dependencies,
     });
+
+    for (const entity of [...new Set(data.entities)]) {
+      const entityId = `${data.id}::${entity}`;
+      graph.addNode(entityId, { label: entity, kind: 'entity' });
+      graph.addEdge(data.id, entityId, { relation: 'contains' });
+    }
   }
 
   // Resolve dependencies
