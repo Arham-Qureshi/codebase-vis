@@ -8,6 +8,15 @@ const PALETTE = [
 
 const EXTERNAL_COLOR = '#64748B';
 
+const LANGUAGE_MAP = {
+  '.js': 'JavaScript', '.jsx': 'JavaScript',
+  '.ts': 'TypeScript', '.tsx': 'TypeScript',
+  '.py': 'Python',
+  '.cpp': 'C++', '.h': 'C++', '.hpp': 'C++',
+  '.html': 'HTML',
+  '.css': 'CSS',
+};
+
 function setAttrs(graph, node, attrs) {
   for (const [key, value] of Object.entries(attrs)) {
     graph.setNodeAttribute(node, key, value);
@@ -65,8 +74,24 @@ export function enrichNodes(graph) {
       return;
     }
 
+    if (attributes.kind === 'entity') {
+      const absDir = path.dirname(node);
+      const info = dirColorMap.get(absDir);
+      setAttrs(graph, node, {
+        size: 3,
+        community: 'entities',
+        color: info ? info.color : '#94a3b8',
+      });
+      return;
+    }
+
     const absDir = path.dirname(node);
+    const ext = path.extname(node).toLowerCase();
     const info = dirColorMap.get(absDir);
-    setAttrs(graph, node, { community: info.label, color: info.color });
+    setAttrs(graph, node, {
+      community: info.label,
+      color: info.color,
+      language: LANGUAGE_MAP[ext] || 'Unknown',
+    });
   });
 }
