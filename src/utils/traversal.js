@@ -12,7 +12,12 @@ const BASELINE_IGNORES = new Set([
   'codebase-out',
 ]);
 
-const ALLOWED_EXTENSIONS = new Set(['.js', '.jsx', '.ts', '.tsx']);
+const ALLOWED_EXTENSIONS = new Set([
+  '.js', '.jsx', '.ts', '.tsx',
+  '.py',
+  '.cpp', '.h', '.hpp',
+  '.html', '.css',
+]);
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024;
 
