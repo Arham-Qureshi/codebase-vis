@@ -183,7 +183,7 @@ export function getHtmlTemplate() {
       const rawNodes = data.nodes.map(n => {
         const a = n.attributes;
         const id = n.key;
-        const isEntity = a.kind === 'entity';
+        const isEntity = ['entity', 'class', 'function'].includes(a.kind);
         const isExternal = a.external;
         const deg = degree[id] || 0;
         const color = a.color || '#94a3b8';
@@ -210,7 +210,7 @@ export function getHtmlTemplate() {
           font: { size: fontSize, color: '#ffffff', face: 'Inter, sans-serif' },
           color: { background: color, border: color },
           borderWidth: isEntity ? 0 : 1,
-          _kind: isEntity ? 'entity' : (isExternal ? 'external' : 'file'),
+          _kind: isEntity ? a.kind : (isExternal ? 'external' : 'file'),
           _community: a.community || 'other',
           _language: a.language || '',
           _degree: deg,
@@ -244,10 +244,12 @@ export function getHtmlTemplate() {
       const edgesDS = new vis.DataSet(rawEdges);
 
       // 6. Compute stats
-      let fileCount = 0, entityCount = 0;
+      let fileCount = 0, classCount = 0, funcCount = 0, entityCount = 0;
       const communityMap = new Map();
       for (const n of rawNodes) {
-        if (n._kind === 'entity') entityCount++;
+        if (n._kind === 'class') classCount++;
+        else if (n._kind === 'function') funcCount++;
+        else if (n._kind === 'entity') entityCount++;
         else if (n._kind === 'file') fileCount++;
         const c = n._community;
         if (!communityMap.has(c)) {
@@ -301,14 +303,14 @@ export function getHtmlTemplate() {
         hoveredNodeId = params.node;
         container.style.cursor = 'pointer';
         const nd = nodesDS.get(params.node);
-        if (nd && nd._kind === 'entity') {
+        if (nd && ['entity', 'class', 'function'].includes(nd._kind)) {
           nodesDS.update({ id: params.node, font: { size: 10, color: '#ffffff', face: 'Inter, sans-serif' } });
         }
       });
       network.on('blurNode', () => {
         if (hoveredNodeId) {
           const nd = nodesDS.get(hoveredNodeId);
-          if (nd && nd._kind === 'entity') {
+          if (nd && ['entity', 'class', 'function'].includes(nd._kind)) {
             nodesDS.update({ id: hoveredNodeId, font: { size: 0 } });
           }
         }
@@ -402,8 +404,9 @@ export function getHtmlTemplate() {
         legendEl.appendChild(item);
       });
 
+      const totalEntities = classCount + funcCount + entityCount;
       document.getElementById('stats').textContent =
-        fileCount + ' files \u00B7 ' + entityCount + ' entities \u00B7 ' + rawEdges.length + ' edges \u00B7 ' + communityMap.size + ' modules';
+        fileCount + ' files \u00B7 ' + totalEntities + ' entities (' + classCount + ' classes, ' + funcCount + ' functions) \u00B7 ' + rawEdges.length + ' edges \u00B7 ' + communityMap.size + ' modules';
 
       // 14. Info panel
       function showInfo(nodeId) {
@@ -419,7 +422,7 @@ export function getHtmlTemplate() {
 
         let extra = '';
         let moduleLabel = esc(n._community || '-');
-        if (n._kind === 'entity') {
+        if (['entity', 'class', 'function'].includes(n._kind)) {
           const sepIdx = nodeId.lastIndexOf('::');
           const parentFile = sepIdx !== -1 ? nodeId.slice(0, sepIdx) : nodeId;
           moduleLabel = 'entities';
