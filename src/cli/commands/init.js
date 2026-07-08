@@ -3,7 +3,6 @@ import pc from 'picocolors';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-// default conatined in agent ingore file
 const DEFAULT_IGNORES = [
   'node_modules/',
   'dist/',
@@ -23,12 +22,10 @@ export async function initCommand() {
 
   try {
     await fs.access(agentignorePath);
-    // file already exists
     p.log.warn(pc.yellow('.agentignore already exists. Aborting to prevent overwriting.'));
     p.outro(pc.dim('Edit the existing .agentignore file, then run ') + pc.cyan('agent-context generate'));
     return;
   } catch {
-    // file does not exist — create it
   }
 
   const s = p.spinner();
