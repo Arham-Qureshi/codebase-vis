@@ -10,10 +10,11 @@ export function toRelative(nodeId) {
   return path.relative(process.cwd(), nodeId) || nodeId;
 }
 
-// color based on its type that is (blue-> file, yellow-> package, magenta-> entity)
+// color based on its type (blue-> file, yellow-> package, green-> class, magenta-> function/entity)
 export function formatNodeLabel(nodeId, attrs) {
   if (attrs.external) return pc.yellow(nodeId);
-  if (attrs.kind === 'entity') return pc.magenta(attrs.label || nodeId);
+  if (attrs.kind === 'class') return pc.green(attrs.label || nodeId);
+  if (attrs.kind === 'function' || attrs.kind === 'entity') return pc.magenta(attrs.label || nodeId);
   return pc.cyan(toRelative(nodeId));
 }
 
