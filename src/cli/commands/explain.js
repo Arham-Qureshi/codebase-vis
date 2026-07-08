@@ -118,10 +118,13 @@ function extractPayload(graph, batch) {
   return batch.map((nodeId) => {
     const attrs = graph.getNodeAttributes(nodeId);
 
-    // Collect entity names from child nodes (contains edges)
+    // Separate classes from functions using their kind attribute
+    const astClasses = [];
     const astFunctions = [];
     graph.forEachOutNeighbor(nodeId, (neighbor, neighborAttrs) => {
-      if (neighborAttrs.kind === 'entity') {
+      if (neighborAttrs.kind === 'class') {
+        astClasses.push(neighborAttrs.label || neighbor);
+      } else if (neighborAttrs.kind === 'function' || neighborAttrs.kind === 'entity') {
         astFunctions.push(neighborAttrs.label || neighbor);
       }
     });
@@ -134,9 +137,14 @@ function extractPayload(graph, batch) {
       }
     });
 
+    // Pull docstrings from file-level attributes
+    const docstrings = attrs.docstrings || [];
+
     return {
       file: toRelative(nodeId),
+      ast_classes: astClasses,
       ast_functions: astFunctions,
+      ast_docstrings: docstrings,
       graph_edges_to: graphEdgesTo,
     };
   });
