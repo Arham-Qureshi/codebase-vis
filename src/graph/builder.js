@@ -13,10 +13,32 @@ export function buildGraph(parsedData) {
       dependencies: data.dependencies,
     });
 
-    for (const entity of [...new Set(data.entities)]) {
-      const entityId = `${data.id}::${entity}`;
-      graph.addNode(entityId, { label: entity, kind: 'entity' });
-      graph.addEdge(data.id, entityId, { relation: 'contains' });
+    const entities = data.entities;
+
+    // Handle structured entities: { classes, functions, docstrings }
+    if (entities && !Array.isArray(entities)) {
+      for (const cls of [...new Set(entities.classes || [])]) {
+        const entityId = `${data.id}::${cls}`;
+        graph.addNode(entityId, { label: cls, kind: 'class' });
+        graph.addEdge(data.id, entityId, { relation: 'contains' });
+      }
+
+      for (const fn of [...new Set(entities.functions || [])]) {
+        const entityId = `${data.id}::${fn}`;
+        graph.addNode(entityId, { label: fn, kind: 'function' });
+        graph.addEdge(data.id, entityId, { relation: 'contains' });
+      }
+
+      if (entities.docstrings && entities.docstrings.length > 0) {
+        graph.setNodeAttribute(data.id, 'docstrings', entities.docstrings);
+      }
+    } else {
+      // Backward compatibility: flat array of entity names
+      for (const entity of [...new Set(entities || [])]) {
+        const entityId = `${data.id}::${entity}`;
+        graph.addNode(entityId, { label: entity, kind: 'entity' });
+        graph.addEdge(data.id, entityId, { relation: 'contains' });
+      }
     }
   }
 
