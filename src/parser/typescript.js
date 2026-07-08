@@ -25,6 +25,11 @@ const ENTITY_QUERY = `
 (variable_declarator name: (identifier) @func_expr_name value: (function_expression))
 `;
 
+// capturing JSDoc-style block comments (/** ... */)
+const DOCSTRING_QUERY = `
+(comment) @doc
+`;
+
 // extracts all dependency paths 
 export function extractDependencies(astRoot, lang = grammar) {
     try {
@@ -39,14 +44,25 @@ export function extractDependencies(astRoot, lang = grammar) {
     }
 }
 
-// extracts all top-level entity names (classes, functions, arrow fns)
+// extracts structured entities: { classes, functions, docstrings }
 export function extractEntities(astRoot, lang = grammar) {
     try {
         const query = new Parser.Query(lang, ENTITY_QUERY);
         const captures = query.captures(astRoot);
 
-        return captures.map(c => c.node.text);
+        const classes = captures.filter(c => c.name === 'class_name').map(c => c.node.text);
+        const functions = captures
+            .filter(c => c.name === 'func_name' || c.name === 'arrow_name' || c.name === 'func_expr_name')
+            .map(c => c.node.text);
+
+        const docQuery = new Parser.Query(lang, DOCSTRING_QUERY);
+        const docCaptures = docQuery.captures(astRoot);
+        const docstrings = docCaptures
+            .map(c => c.node.text)
+            .filter(t => t.startsWith('/**'));
+
+        return { classes, functions, docstrings };
     } catch {
-        return [];
+        return { classes: [], functions: [], docstrings: [] };
     }
 }

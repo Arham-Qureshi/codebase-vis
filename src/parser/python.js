@@ -15,6 +15,11 @@ const ENTITY_QUERY = `
 (function_definition name: (identifier) @func_name)
 `;
 
+// Python docstrings: string literals as standalone expressions (triple-quoted)
+const DOCSTRING_QUERY = `
+(expression_statement (string) @doc)
+`;
+
 export function extractDependencies(astRoot) {
   try {
     const query = new Parser.Query(grammar, DEPENDENCY_QUERY);
@@ -26,13 +31,21 @@ export function extractDependencies(astRoot) {
   }
 }
 
+// extracts structured entities: { classes, functions, docstrings }
 export function extractEntities(astRoot) {
   try {
     const query = new Parser.Query(grammar, ENTITY_QUERY);
     const captures = query.captures(astRoot);
 
-    return captures.map(c => c.node.text);
+    const classes = captures.filter(c => c.name === 'class_name').map(c => c.node.text);
+    const functions = captures.filter(c => c.name === 'func_name').map(c => c.node.text);
+
+    const docQuery = new Parser.Query(grammar, DOCSTRING_QUERY);
+    const docCaptures = docQuery.captures(astRoot);
+    const docstrings = docCaptures.map(c => c.node.text);
+
+    return { classes, functions, docstrings };
   } catch {
-    return [];
+    return { classes: [], functions: [], docstrings: [] };
   }
 }
