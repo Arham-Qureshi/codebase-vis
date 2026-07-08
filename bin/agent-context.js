@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
-import { initCommand, generateCommand, cleanCommand, serveCommand } from '../src/cli/commands.js';
+import { initCommand, generateCommand, cleanCommand, serveCommand, queryCommand } from '../src/cli/commands.js';
 
 const program = new Command();
 
@@ -31,5 +31,10 @@ program
   .description('Start a local web server to view the generated graph')
   .option('-p, --port <number>', 'Port to run on', '3000')
   .action(serveCommand);
+
+program
+  .command('query <target>')
+  .description('Look up a node\'s dependencies and dependents from the generated graph')
+  .action(queryCommand);
 
 program.parse(process.argv);
