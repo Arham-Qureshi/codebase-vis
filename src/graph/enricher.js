@@ -70,7 +70,7 @@ export function enrichNodes(graph) {
     setAttrs(graph, node, baseAttrs);
 
     if (attributes.external) {
-      setAttrs(graph, node, { community: 'npm', color: EXTERNAL_COLOR });
+      setAttrs(graph, node, { community: 'dependencies', color: EXTERNAL_COLOR });
       return;
     }
 

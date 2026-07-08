@@ -372,8 +372,8 @@ export function getHtmlTemplate() {
       const sortedKeys = [...communityMap.keys()].sort((a, b) => {
         if (a === 'entities') return 1;
         if (b === 'entities') return -1;
-        if (a === 'npm') return 1;
-        if (b === 'npm') return -1;
+        if (a === 'dependencies') return 1;
+        if (b === 'dependencies') return -1;
         return a.localeCompare(b);
       });
 

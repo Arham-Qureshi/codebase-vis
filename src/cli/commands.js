@@ -1,5 +1,6 @@
 import * as p from '@clack/prompts';
 import pc from 'picocolors';
+import Graph from 'graphology';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import http from 'node:http';
@@ -199,4 +200,178 @@ export async function serveCommand(options = {}) {
     exec(`${openCmd} ${url}`, () => {
     });
   });
+}
+
+// Convert an absolute node ID to a project-relative path
+function toRelative(nodeId) {
+  return path.relative(process.cwd(), nodeId) || nodeId;
+}
+
+// color based on its type that is (blue-> file,yellow-> package,magenta-> entity)
+function formatNodeLabel(nodeId, attrs) {
+  if (attrs.external) return pc.yellow(nodeId);
+  if (attrs.kind === 'entity') return pc.magenta(attrs.label || nodeId);
+  return pc.cyan(toRelative(nodeId));
+}
+
+// query => look up a node's dependencies and dependents 
+export async function queryCommand(target) {
+  p.intro(pc.bgCyan(pc.black(' agent-context query ')));
+
+  // Load graph.json
+  const graphPath = path.join(getOutDirPath(), 'graph.json');
+  try {
+    await fs.access(graphPath);
+  } catch {
+    p.log.error(
+      pc.red('graph.json not found. Run ') +
+      pc.cyan('agent-context generate') +
+      pc.red(' first.')
+    );
+    p.outro(pc.dim('Nothing to query.'));
+    return;
+  }
+
+  const s = p.spinner();
+  s.start('Loading graph');
+
+  const raw = await fs.readFile(graphPath, 'utf-8');
+  const graph = new Graph({ multi: true, directed: true });
+  graph.import(JSON.parse(raw));
+
+  s.stop(pc.green(`Graph loaded: ${pc.bold(graph.order)} nodes, ${pc.bold(graph.size)} edges`));
+
+  // exact match first, then partial
+  let nodeId = null;
+
+  if (graph.hasNode(target)) {
+    nodeId = target;
+  } else {
+    // Try resolving as a path relative to cwd
+    const resolved = path.resolve(process.cwd(), target);
+    if (graph.hasNode(resolved)) {
+      nodeId = resolved;
+    }
+  }
+
+  if (!nodeId) {
+    const query = target.toLowerCase();
+    const matches = [];
+    graph.forEachNode((id, attrs) => {
+      const label = (attrs.label || id).toLowerCase();
+      if (id.toLowerCase().includes(query) || label.includes(query)) {
+        matches.push({ id, label: attrs.label || id });
+      }
+    });
+
+    if (matches.length === 0) {
+      p.log.error(pc.red(`No node found matching "${pc.bold(target)}".`));
+      p.outro(pc.dim('Try a different search term.'));
+      return;
+    }
+
+    if (matches.length === 1) {
+      nodeId = matches[0].id;
+    } else {
+      // Let the user pick from the matches
+      const selected = await p.select({
+        message: `Multiple matches for "${target}". Select a node:`,
+        options: matches.slice(0, 25).map(m => ({
+          value: m.id,
+          label: m.label,
+          hint: m.id !== m.label ? pc.dim(toRelative(m.id)) : undefined,
+        })),
+      });
+
+      if (p.isCancel(selected)) {
+        p.outro(pc.dim('Query cancelled.'));
+        return;
+      }
+
+      nodeId = selected;
+    }
+  }
+
+  const attrs = graph.getNodeAttributes(nodeId);
+  const relPath = toRelative(nodeId);
+  const displayLabel = attrs.label || path.basename(nodeId);
+
+  p.log.info(
+    pc.bold(pc.white(displayLabel)) +
+    pc.dim(relPath !== displayLabel ? `  ${relPath}` : '')
+  );
+
+  if (attrs.community) {
+    p.log.message(pc.dim('Module: ') + pc.white(attrs.community));
+  }
+
+  const dependencies = [];
+  const dependents = [];
+
+  graph.forEachOutNeighbor(nodeId, (neighbor, neighborAttrs) => {
+    dependencies.push({ id: neighbor, attrs: neighborAttrs });
+  });
+
+  graph.forEachInNeighbor(nodeId, (neighbor, neighborAttrs) => {
+    dependents.push({ id: neighbor, attrs: neighborAttrs });
+  });
+
+  // Deduplicate (multi-graph may have parallel edges)
+  const dedup = (list) => {
+    const seen = new Set();
+    return list.filter(item => {
+      if (seen.has(item.id)) return false;
+      seen.add(item.id);
+      return true;
+    });
+  };
+
+  const uniqueDeps = dedup(dependencies);
+  const uniqueDependent = dedup(dependents);
+
+  // Print dependencies (outbound)
+  const sectionSep = pc.dim('─'.repeat(44));
+
+  p.log.message('');
+  p.log.message(sectionSep);
+  p.log.message(pc.bold(pc.green(`  ↓ Dependencies (${uniqueDeps.length})`)));
+  p.log.message(sectionSep);
+
+  if (uniqueDeps.length === 0) {
+    p.log.message(pc.dim('  No dependencies.'));
+  } else {
+    for (const dep of uniqueDeps) {
+      const icon = dep.attrs.external ? pc.yellow('◆') :
+        dep.attrs.kind === 'entity' ? pc.magenta('◇') :
+          pc.cyan('●');
+      p.log.message(`  ${icon} ${formatNodeLabel(dep.id, dep.attrs)}`);
+    }
+  }
+
+  // Print dependents (inbound)
+  p.log.message('');
+  p.log.message(sectionSep);
+  p.log.message(pc.bold(pc.red(`  ↑ Dependents (${uniqueDependent.length})`)));
+  p.log.message(sectionSep);
+
+  if (uniqueDependent.length === 0) {
+    p.log.message(pc.dim('  No dependents.'));
+  } else {
+    for (const dep of uniqueDependent) {
+      const icon = dep.attrs.external ? pc.yellow('◆') :
+        dep.attrs.kind === 'entity' ? pc.magenta('◇') :
+          pc.cyan('●');
+      p.log.message(`  ${icon} ${formatNodeLabel(dep.id, dep.attrs)}`);
+    }
+  }
+
+  p.log.message('');
+  p.log.message(
+    pc.dim('  Legend: ') +
+    pc.cyan('● file') + pc.dim(' · ') +
+    pc.yellow('◆ package') + pc.dim(' · ') +
+    pc.magenta('◇ entity')
+  );
+
+  p.outro(pc.green('✔') + pc.dim(' Query complete.'));
 }

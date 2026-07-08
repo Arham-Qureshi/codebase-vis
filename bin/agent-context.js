@@ -16,8 +16,8 @@ program
   .action(initCommand);
 
 program
-  .command('generate')
-  .description('Parse the codebase and generate the dependency graph')
+  .command('generate [paths...]')
+  .description('Parse the codebase (or specific paths) and generate the dependency graph')
   .option('--ignore <paths>', 'Comma-separated list of additional directories to skip')
   .action(generateCommand);
 
