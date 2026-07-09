@@ -89,7 +89,7 @@ function clusterGraph(graph) {
   // Clone the graph to avoid mutating the original enricher's community attributes.
   // Louvain.assign sets a `community` attribute — we need those for clustering but
   // want to preserve the original directory-based communities on the source graph.
-  const workGraph = Graph.from(graph);
+  const workGraph = graph.copy();
   louvain.assign(workGraph);
 
   // Collect only file nodes (skip entities, externals)
