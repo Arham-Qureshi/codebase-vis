@@ -3,6 +3,7 @@ docs/
 codebase-out/
 .opencode/
 dummy-polyglot/
+test/
 .agentignore
 .gitignore
 .npmignore

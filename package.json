@@ -16,7 +16,7 @@
     "doc": "docs"
   },
   "scripts": {
-    "test": "node --check bin/agent-context.js"
+    "test": "node --test"
   },
   "repository": {
     "type": "git",

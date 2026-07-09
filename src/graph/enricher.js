@@ -34,6 +34,8 @@ function findCommonRoot(absPaths) {
   return first.slice(0, depth).join(path.sep) || path.sep;
 }
 
+export { findCommonRoot };
+
 export function enrichNodes(graph) {
   const localNodes = [];
 

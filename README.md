@@ -254,6 +254,53 @@ Run `agent-context generate` first to create the graph data.
 **No files found during generate**
 Check your `.agentignore` file — you may be excluding the target directory. Use `--verbose` to see which files are being processed.
 
+## Publishing to npm via GitHub
+
+This project includes a GitHub Actions workflow (`.github/workflows/publish.yml`) that publishes to npm automatically when you create a GitHub Release.
+
+### One-time setup
+
+1. **Generate an npm access token**
+
+   - Go to [npmjs.com/settings/tokens](https://www.npmjs.com/settings/tokens)
+   - Click **"Generate New Token"** → **"Classic Token"**
+   - Select **"Automation"** permission (no 2FA required per publish)
+   - Copy the generated token
+
+2. **Add the token to your GitHub repository**
+
+   - Go to your repo on GitHub: **Settings → Secrets and variables → Actions**
+   - Click **"New repository secret"**
+   - Name: `NPM_TOKEN`, Value: paste the token from step 1
+   - Click **"Add secret"**
+
+3. **Push the workflow file to GitHub**
+
+   ```bash
+   git add .github/workflows/publish.yml
+   git commit -m "add npm publish workflow"
+   git push
+   ```
+
+### Publishing a new version
+
+```bash
+# 1. Bump version (patch, minor, or major)
+npm version patch
+
+# 2. Push the version commit and tag
+git push --follow-tags
+
+# 3. Go to GitHub → repo → "Releases" → "Draft a new Release"
+#    - Choose the tag you just pushed (e.g. v1.3.2)
+#    - Add release notes
+#    - Click "Publish Release"
+
+# That's it — the workflow publishes to npm automatically.
+```
+
+The workflow runs `npm ci`, then `npm test`, then `npm publish`. No manual publish commands needed.
+
 ## License
 
 ISC
