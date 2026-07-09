@@ -3,7 +3,7 @@ import pc from 'picocolors';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import http from 'node:http';
-import { exec } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { getOutDirPath } from '../../utils/file-system.js';
 
 // lookup for the static file server
@@ -65,7 +65,10 @@ export async function serveCommand(options = {}) {
       : platform === 'win32' ? 'start'
         : 'xdg-open';
 
-    exec(`${openCmd} ${url}`, () => {
-    });
+    spawn(openCmd, [url], {
+      stdio: 'ignore',
+      detached: true,
+      shell: platform === 'win32',
+    }).unref();
   });
 }
