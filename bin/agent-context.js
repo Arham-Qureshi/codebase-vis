@@ -19,6 +19,8 @@ program
   .command('generate [paths...]')
   .description('Parse the codebase (or specific paths) and generate the dependency graph')
   .option('--ignore <paths>', 'Comma-separated list of additional directories to skip')
+  .option('--no-clear', 'Skip clearing the terminal')
+  .option('--verbose', 'Show detailed per-file parse errors')
   .action(generateCommand);
 
 program
