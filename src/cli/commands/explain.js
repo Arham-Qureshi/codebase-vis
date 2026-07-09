@@ -3,6 +3,7 @@ import pc from 'picocolors';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
+import Graph from 'graphology';
 import louvain from 'graphology-communities-louvain';
 import { loadGraph, toRelative } from '../shared.js';
 import { getOutDirPath } from '../../utils/file-system.js';
@@ -85,15 +86,16 @@ async function resolveCredentials(options = {}) {
 }
 
 function clusterGraph(graph) {
-  // Louvain.assign mutates the graph by setting a `community` attribute on each node.
-  // This overwrites the directory-based community from the enricher, which is intentional
-  // since we need mathematical clusters for batching, not visual grouping.
-  louvain.assign(graph);
+  // Clone the graph to avoid mutating the original enricher's community attributes.
+  // Louvain.assign sets a `community` attribute — we need those for clustering but
+  // want to preserve the original directory-based communities on the source graph.
+  const workGraph = Graph.from(graph);
+  louvain.assign(workGraph);
 
   // Collect only file nodes (skip entities, externals)
   const clusters = new Map();
 
-  graph.forEachNode((node, attrs) => {
+  workGraph.forEachNode((node, attrs) => {
     if (attrs.external || attrs.kind === 'entity') return;
 
     const communityId = attrs.community;
