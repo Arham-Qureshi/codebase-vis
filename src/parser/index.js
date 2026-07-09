@@ -8,7 +8,6 @@ import { grammar as cppGrammar, extractDependencies as cppExtractDeps, extractEn
 import { grammar as htmlGrammar, extractDependencies as htmlExtractDeps, extractEntities as htmlExtractEnts } from './html.js';
 import { grammar as cssGrammar, extractDependencies as cssExtractDeps, extractEntities as cssExtractEnts } from './css.js';
 
-// maps extensions to their grammar and extraction functions
 const GRAMMAR_MAP = {
   '.js':  { grammar: jsGrammar,  extractDeps: jsExtractDeps, extractEnts: jsExtractEnts },
   '.jsx': { grammar: jsGrammar,  extractDeps: jsExtractDeps, extractEnts: jsExtractEnts },
@@ -17,40 +16,62 @@ const GRAMMAR_MAP = {
   '.py':  { grammar: pyGrammar,  extractDeps: pyExtractDeps, extractEnts: pyExtractEnts },
   '.cpp': { grammar: cppGrammar, extractDeps: cppExtractDeps, extractEnts: cppExtractEnts },
   '.h':   { grammar: cppGrammar, extractDeps: cppExtractDeps, extractEnts: cppExtractEnts },
-  '.hpp':  { grammar: cppGrammar,  extractDeps: cppExtractDeps,  extractEnts: cppExtractEnts },
+  '.hpp': { grammar: cppGrammar, extractDeps: cppExtractDeps, extractEnts: cppExtractEnts },
   '.html': { grammar: htmlGrammar, extractDeps: htmlExtractDeps, extractEnts: htmlExtractEnts },
-  '.css':  { grammar: cssGrammar,  extractDeps: cssExtractDeps,  extractEnts: cssExtractEnts },
+  '.css':  { grammar: cssGrammar,  extractDeps: cssExtractDeps, extractEnts: cssExtractEnts },
 };
 
-// reads a file, parses its AST, and returns a normalized object
-export async function parseFile(filePath) {
-  try {
-    const content = await fs.readFile(filePath, 'utf8');
+const parserCache = new Map();
+const BATCH_SIZE = 100;
 
-    // skip empty files
-    if (!content || content.trim().length === 0) return null;
-
-    const ext = path.extname(filePath).toLowerCase();
-    const config = GRAMMAR_MAP[ext];
-
-    if (!config) return null;
-
+function getParser(ext) {
+  const config = GRAMMAR_MAP[ext];
+  if (!config) return null;
+  if (!parserCache.has(ext)) {
     const parser = new Parser();
     parser.setLanguage(config.grammar);
+    parserCache.set(ext, parser);
+  }
+  return { parser: parserCache.get(ext), config };
+}
 
-    const tree = parser.parse(content);
-    const rootNode = tree.rootNode;
+async function parseFileInternal(filePath) {
+  const content = await fs.readFile(filePath, 'utf8');
+  if (!content || content.trim().length === 0) return null;
+  const ext = path.extname(filePath).toLowerCase();
+  const entry = getParser(ext);
+  if (!entry) return null;
+  const { parser, config } = entry;
+  const tree = parser.parse(content);
+  const rootNode = tree.rootNode;
+  const dependencies = config.extractDeps(rootNode, config.grammar);
+  const entities = config.extractEnts(rootNode, config.grammar);
+  return { id: filePath, dependencies, entities };
+}
 
-    const dependencies = config.extractDeps(rootNode, config.grammar);
-    const entities = config.extractEnts(rootNode, config.grammar);
-
-    return {
-      id: filePath,
-      dependencies,
-      entities,
-    };
+export async function parseFile(filePath) {
+  try {
+    return await parseFileInternal(filePath);
   } catch {
-    // return null gracefully
     return null;
   }
+}
+
+export async function parseFileBatch(files, onProgress) {
+  const results = [];
+  for (let i = 0; i < files.length; i += BATCH_SIZE) {
+    const batch = files.slice(i, i + BATCH_SIZE);
+    const batchResults = await Promise.all(
+      batch.map(async (file) => {
+        try {
+          return await parseFileInternal(file);
+        } catch {
+          return { id: file, error: true };
+        }
+      })
+    );
+    results.push(...batchResults);
+    if (onProgress) onProgress(Math.min(i + BATCH_SIZE, files.length), files.length);
+  }
+  return results;
 }
