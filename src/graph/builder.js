@@ -6,7 +6,12 @@ export function buildGraph(parsedData) {
   // Initialize a directed graph 
   const graph = new Graph({ multi: true, directed: true });
 
-  const isRelative = (s) => s.startsWith('./') || s.startsWith('../');
+  // Checks if a path is relative by matching:
+  // ^      - start of string
+  // \.     - a literal dot
+  // \.?    - an optional second dot (for ..)
+  // [/\\]  - a forward or backward slash
+  const isRelative = (s) => /^\.\.?[/\\]/.test(s);
 
   for (const data of parsedData) {
     graph.addNode(data.id, {
