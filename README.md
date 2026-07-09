@@ -56,7 +56,7 @@ $ codebase-vis generate
 # ✔ graph.html generated in codebase-out/
 
 $ codebase-vis serve
-✔ Server running at http://localhost:3000
+# ✔ Server running at http://localhost:3000
 ```
 
 Open `http://localhost:3000` in your browser. The visualiser shows your codebase as an interactive force-directed graph — hover nodes for details, drag to rearrange, zoom to explore.
@@ -69,7 +69,7 @@ Create a boilerplate `.agentignore` file with sensible defaults (`node_modules/`
 
 ```bash
 $ codebase-vis init
-✔ .agentignore created successfully
+# ✔ .agentignore created successfully
 ```
 
 Edit the file to exclude additional paths, then run `generate`.
@@ -80,15 +80,15 @@ Parse source files and build the dependency graph. Accepts one or more directory
 
 ```bash
 $ codebase-vis generate src/ --ignore tests --verbose
-✔ Setting up output directory
-✔ Tech stack detected: Node.js
-✔ Found 142 files
-✔ Parsed 140 files successfully
-✖   src/legacy/deprecated.js
-✖   src/vendor/old-lib.js
-✔ Graph built: 523 nodes, 1284 edges
-✔ graph.json written to codebase-out/
-✔ graph.html generated in codebase-out/
+# ✔ Setting up output directory
+# ✔ Tech stack detected: Node.js
+# ✔ Found 142 files
+# ✔ Parsed 140 files successfully
+# ✖   src/legacy/deprecated.js
+# ✖   src/vendor/old-lib.js
+# ✔ Graph built: 523 nodes, 1284 edges
+# ✔ graph.json written to codebase-out/
+# ✔ graph.html generated in codebase-out/
 ```
 
 Options:
@@ -105,7 +105,7 @@ Start a local HTTP server for the interactive graph visualiser.
 
 ```bash
 $ codebase-vis serve
-✔ Server running at http://localhost:3000
+# ✔ Server running at http://localhost:3000
 ```
 
 Options:
@@ -120,7 +120,7 @@ Look up a file's dependencies (what it imports) and dependents (what imports it)
 
 ```bash
 $ codebase-vis query src/api/handler.js
-✔ Graph loaded: 523 nodes, 1284 edges
+# ✔ Graph loaded: 523 nodes, 1284 edges
 
 handler.js
 
@@ -146,7 +146,7 @@ Find the shortest dependency path between two nodes using bidirectional BFS.
 
 ```bash
 $ codebase-vis path src/api/handler.js src/utils/db.js
-✔ Graph loaded: 523 nodes, 1284 edges
+# ✔ Graph loaded: 523 nodes, 1284 edges
 
 ────────────────────────────
   Dependency Path (4 hops)
@@ -170,14 +170,14 @@ Cluster files using Louvain community detection, then generate semantic summarie
 
 ```bash
 $ codebase-vis explain
-✔ Graph loaded: 523 nodes, 1284 edges
-✔ Detected 12 clusters across 140 files
-? Paste your Groq API Key: ****************************************
-? Enter the model name: (openai/gpt-oss-120b)
-✔ Credentials saved to ~/.codebase-vis/config.json
-✔ All 12 clusters analyzed
-✔ Semantic report written to codebase-out/semantic-summary.md
-✔ graph.json enriched with semantic_summary attributes.
+# ✔ Graph loaded: 523 nodes, 1284 edges
+# ✔ Detected 12 clusters across 140 files
+# ? Paste your Groq API Key: ****************************************
+# ? Enter the model name: (openai/gpt-oss-120b)
+# ✔ Credentials saved to ~/.codebase-vis/config.json
+# ✔ All 12 clusters analyzed
+# ✔ Semantic report written to codebase-out/semantic-summary.md
+# ✔ graph.json enriched with semantic_summary attributes.
 ```
 
 Options:
@@ -198,8 +198,8 @@ Delete the `codebase-out/` directory after confirmation.
 
 ```bash
 $ codebase-vis clean
-✔ Are you sure you want to delete the codebase-out/ directory? Yes
-✔ codebase-out/ deleted successfully
+# ✔ Are you sure you want to delete the codebase-out/ directory? Yes
+# ✔ codebase-out/ deleted successfully
 ```
 
 ## Output Files
