@@ -45,14 +45,15 @@ Generate a dependency graph from your project, then open the visualiser:
 
 ```bash
 $ cd my-project
+$ codebase-vis init
 $ codebase-vis generate
-✔ Setting up output directory
-✔ Tech stack detected: Node.js
-✔ Found 142 files
-✔ Parsed 140 files successfully
-✔ Graph built: 523 nodes, 1284 edges
-✔ graph.json written to codebase-out/
-✔ graph.html generated in codebase-out/
+# ✔ Setting up output directory
+# ✔ Tech stack detected: Node.js
+# ✔ Found 142 files
+# ✔ Parsed 140 files successfully
+# ✔ Graph built: 523 nodes, 1284 edges
+# ✔ graph.json written to codebase-out/
+# ✔ graph.html generated in codebase-out/
 
 $ codebase-vis serve
 ✔ Server running at http://localhost:3000
