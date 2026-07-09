@@ -4,14 +4,14 @@ import path from 'node:path';
 import { createOutDir, safeWriteFile } from '../../utils/file-system.js';
 import { discoverFiles } from '../../utils/traversal.js';
 import { detectTechStack } from '../../parser/stack-detector.js';
-import { parseFile } from '../../parser/index.js';
+import { parseFileBatch } from '../../parser/index.js';
 import { buildGraph } from '../../graph/builder.js';
 import { exportGraphToJson } from '../../graph/formatter.js';
 import { getHtmlTemplate } from '../../templates/graph-template.js';
 
 // generate => the primary workhorse
 export async function generateCommand(paths = [], options = {}) {
-  console.clear();
+  if (options.clear !== false) console.clear();
   p.intro(pc.bgCyan(pc.black(' agent-context generate ')));
 
   // resolve target directories — default to cwd if none specified
@@ -45,12 +45,27 @@ export async function generateCommand(paths = [], options = {}) {
 
   // Parsing AST and extracting dependencies
   s.start('Parsing AST and extracting dependencies...');
+  const allResults = await parseFileBatch(files, (done, total) => {
+    s.message(`Parsing files... ${done}/${total}`);
+  });
   const parsedData = [];
-  for (const file of files) {
-    const result = await parseFile(file);
-    if (result) parsedData.push(result);
+  const errors = [];
+  for (const result of allResults) {
+    if (result && !result.error) {
+      parsedData.push(result);
+    } else if (options.verbose) {
+      errors.push(result.id);
+    }
   }
   s.stop(pc.green(`Parsed ${pc.bold(parsedData.length)} files successfully`));
+  if (errors.length > 0) {
+    p.log.warn(pc.yellow(`${errors.length} file(s) failed to parse. Use --verbose to see details.`));
+  }
+  if (options.verbose && errors.length > 0) {
+    for (const file of errors) {
+      p.log.warn(pc.dim(`  ${path.relative(process.cwd(), file)}`));
+    }
+  }
 
   s.start('Building dependency graph...');
   const graph = buildGraph(parsedData);
@@ -61,7 +76,7 @@ export async function generateCommand(paths = [], options = {}) {
   s.stop(pc.green('graph.json written to codebase-out/'));
 
   s.start('Generating HTML visualizer...');
-  const html = getHtmlTemplate();
+  const html = await getHtmlTemplate();
   const htmlPath = path.join(outDir, 'graph.html');
   await safeWriteFile(htmlPath, html);
   s.stop(pc.green('graph.html generated in codebase-out/'));
