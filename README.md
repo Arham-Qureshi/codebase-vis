@@ -1,8 +1,8 @@
-# agent-context
+# codebase-vis
 
-[![npm version](https://img.shields.io/npm/v/agent-context)](https://www.npmjs.com/package/agent-context)
+[![npm version](https://img.shields.io/npm/v/codebase-vis)](https://www.npmjs.com/package/codebase-vis)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](https://nodejs.org)
-[![License](https://img.shields.io/npm/l/agent-context)](LICENSE)
+[![License](https://img.shields.io/npm/l/codebase-vis)](LICENSE)
 
 A local CLI tool that parses codebases, builds dependency graphs from AST analysis, and outputs interactive architecture visualizations.
 
@@ -30,13 +30,13 @@ A local CLI tool that parses codebases, builds dependency graphs from AST analys
 ## Install
 
 ```bash
-npm install -g agent-context
+npm install -g codebase-vis
 ```
 
 Or run without installing:
 
 ```bash
-npx agent-context <command>
+npx codebase-vis <command>
 ```
 
 ## Quick Start
@@ -45,7 +45,7 @@ Generate a dependency graph from your project, then open the visualiser:
 
 ```bash
 $ cd my-project
-$ agent-context generate
+$ codebase-vis generate
 ✔ Setting up output directory
 ✔ Tech stack detected: Node.js
 ✔ Found 142 files
@@ -54,7 +54,7 @@ $ agent-context generate
 ✔ graph.json written to codebase-out/
 ✔ graph.html generated in codebase-out/
 
-$ agent-context serve
+$ codebase-vis serve
 ✔ Server running at http://localhost:3000
 ```
 
@@ -67,7 +67,7 @@ Open `http://localhost:3000` in your browser. The visualiser shows your codebase
 Create a boilerplate `.agentignore` file with sensible defaults (`node_modules/`, `dist/`, `.git/`, etc.).
 
 ```bash
-$ agent-context init
+$ codebase-vis init
 ✔ .agentignore created successfully
 ```
 
@@ -78,7 +78,7 @@ Edit the file to exclude additional paths, then run `generate`.
 Parse source files and build the dependency graph. Accepts one or more directory paths; defaults to the current directory.
 
 ```bash
-$ agent-context generate src/ --ignore tests --verbose
+$ codebase-vis generate src/ --ignore tests --verbose
 ✔ Setting up output directory
 ✔ Tech stack detected: Node.js
 ✔ Found 142 files
@@ -103,7 +103,7 @@ Options:
 Start a local HTTP server for the interactive graph visualiser.
 
 ```bash
-$ agent-context serve
+$ codebase-vis serve
 ✔ Server running at http://localhost:3000
 ```
 
@@ -118,7 +118,7 @@ Options:
 Look up a file's dependencies (what it imports) and dependents (what imports it). Target can be a file path or a partial name for interactive selection.
 
 ```bash
-$ agent-context query src/api/handler.js
+$ codebase-vis query src/api/handler.js
 ✔ Graph loaded: 523 nodes, 1284 edges
 
 handler.js
@@ -144,7 +144,7 @@ handler.js
 Find the shortest dependency path between two nodes using bidirectional BFS.
 
 ```bash
-$ agent-context path src/api/handler.js src/utils/db.js
+$ codebase-vis path src/api/handler.js src/utils/db.js
 ✔ Graph loaded: 523 nodes, 1284 edges
 
 ────────────────────────────
@@ -165,15 +165,15 @@ $ agent-context path src/api/handler.js src/utils/db.js
 
 ### `explain`
 
-Cluster files using Louvain community detection, then generate semantic summaries via the Groq API. Credentials are prompted on first run and cached in `~/.agent-context/config.json`.
+Cluster files using Louvain community detection, then generate semantic summaries via the Groq API. Credentials are prompted on first run and cached in `~/.codebase-vis/config.json`.
 
 ```bash
-$ agent-context explain
+$ codebase-vis explain
 ✔ Graph loaded: 523 nodes, 1284 edges
 ✔ Detected 12 clusters across 140 files
 ? Paste your Groq API Key: ****************************************
 ? Enter the model name: (openai/gpt-oss-120b)
-✔ Credentials saved to ~/.agent-context/config.json
+✔ Credentials saved to ~/.codebase-vis/config.json
 ✔ All 12 clusters analyzed
 ✔ Semantic report written to codebase-out/semantic-summary.md
 ✔ graph.json enriched with semantic_summary attributes.
@@ -196,7 +196,7 @@ Output:
 Delete the `codebase-out/` directory after confirmation.
 
 ```bash
-$ agent-context clean
+$ codebase-vis clean
 ✔ Are you sure you want to delete the codebase-out/ directory? Yes
 ✔ codebase-out/ deleted successfully
 ```
@@ -213,10 +213,10 @@ All generated files live under `codebase-out/` in the working directory.
 
 ## Configuration: `.agentignore`
 
-Created via `agent-context init`. Uses `.gitignore`-style patterns to exclude paths from parsing.
+Created via `codebase-vis init`. Uses `.gitignore`-style patterns to exclude paths from parsing.
 
 ```
-# agent-context ignore file
+# codebase-vis ignore file
 # Add paths below to exclude from parsing
 
 node_modules/
@@ -246,10 +246,10 @@ codebase-out/
 Make sure a C++ compiler is installed (see [Prerequisites](#prerequisites)). On Windows, ensure MSVC is available — install "Desktop development with C++" via the Visual Studio Installer.
 
 **Port already in use**
-Pass a different port: `agent-context serve --port 4000`.
+Pass a different port: `codebase-vis serve --port 4000`.
 
 **"graph.json not found"**
-Run `agent-context generate` first to create the graph data.
+Run `codebase-vis generate` first to create the graph data.
 
 **No files found during generate**
 Check your `.agentignore` file — you may be excluding the target directory. Use `--verbose` to see which files are being processed.
