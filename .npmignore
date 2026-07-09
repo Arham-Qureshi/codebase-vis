@@ -1,0 +1,8 @@
+.agents/
+docs/
+codebase-out/
+.opencode/
+dummy-polyglot/
+.agentignore
+.gitignore
+.npmignore
