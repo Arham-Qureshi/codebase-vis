@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
+import { createRequire } from 'module';
+const { version } = createRequire(import.meta.url)('../package.json');
 import { initCommand, generateCommand, cleanCommand, serveCommand, queryCommand, pathCommand, explainCommand } from '../src/cli/commands/index.js';
 
 const program = new Command();
 
 program
   .name('agent-context')
-  .version('1.3.1')
+  .version(version)
   .description('A local CLI tool that parses codebases, builds dependency graphs, and outputs interactive architecture visualizations.');
 
 program
