@@ -1,0 +1,6 @@
+1. too slow while computing large codebase for generating graphs we want multiprocessing and threading apprach basically parallelism 
+2. refined and dynamic .agentignore, which analyse the codebase parallely and add for exmaple nif node project add nodemodules and simalr for python add venv and simialr etc etc
+3. one more thing i noticed when discovering path by path command it only serchea with respect to directed graph
+4.i in explain commands prompt if large codebase prompt user to select parts so decrease overhead (if file above 500)
+4.ii develop a parallesm pool for computing because its too slow
+5. dynamic version not hardcoded
