@@ -47,7 +47,7 @@ export async function generateCommand(paths = [], options = {}) {
   s.start('Parsing AST and extracting dependencies...');
   const allResults = await parseFileBatch(files, (done, total) => {
     s.message(`Parsing files... ${done}/${total}`);
-  });
+  }, options.jobs ? Number(options.jobs) : undefined);
   const parsedData = [];
   const errors = [];
   for (const result of allResults) {
