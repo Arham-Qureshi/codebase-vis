@@ -20,36 +20,41 @@ const ALLOWED_EXTENSIONS = new Set([
 ]);
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024;
+const DIR_CONCURRENCY = 32;
 
-// using recursive search
 export async function discoverFiles(targetDir, customIgnores = []) {
-  // merge hardcoded + custom ignores into a single set for O(1) lookup
   const ignoreSet = new Set([...BASELINE_IGNORES, ...customIgnores]);
   const results = [];
 
   async function walk(dir) {
     const entries = await fs.readdir(dir);
+    const filtered = entries.filter(e => !ignoreSet.has(e));
 
-    for (const entry of entries) {
-      if (ignoreSet.has(entry)) continue;
+    const stats = await Promise.all(
+      filtered.map(e =>
+        fs.lstat(path.join(dir, e))
+          .then(s => ({ name: e, stats: s }))
+          .catch(() => null)
+      )
+    );
 
-      const fullPath = path.join(dir, entry);
+    const dirPromises = [];
 
-      // not stat so we don't follow symlinks
-      const stats = await fs.lstat(fullPath);
-
-      if (stats.isSymbolicLink()) continue;
-
-      if (stats.isDirectory()) {
-        await walk(fullPath);
-      } else if (stats.isFile()) {
-        if (stats.size > MAX_FILE_SIZE) continue;
-
-        const ext = path.extname(entry).toLowerCase();
+    for (const item of stats) {
+      if (!item || item.stats.isSymbolicLink()) continue;
+      const fullPath = path.join(dir, item.name);
+      if (item.stats.isDirectory()) {
+        dirPromises.push(walk(fullPath));
+      } else if (item.stats.isFile()) {
+        if (item.stats.size > MAX_FILE_SIZE) continue;
+        const ext = path.extname(item.name).toLowerCase();
         if (!ALLOWED_EXTENSIONS.has(ext)) continue;
-
         results.push(path.resolve(fullPath));
       }
+    }
+
+    for (let i = 0; i < dirPromises.length; i += DIR_CONCURRENCY) {
+      await Promise.all(dirPromises.slice(i, i + DIR_CONCURRENCY));
     }
   }
 
