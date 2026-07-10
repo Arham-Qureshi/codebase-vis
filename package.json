@@ -5,7 +5,7 @@
   "type": "module",
   "main": "./bin/codebase-vis.js",
   "bin": {
-    "codebase-vis": "./bin/codebase-vis.js"
+    "codebase-vis": "bin/codebase-vis.js"
   },
   "files": [
     "bin/",
