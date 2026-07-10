@@ -21,6 +21,7 @@ program
   .option('--ignore <paths>', 'Comma-separated list of additional directories to skip')
   .option('--no-clear', 'Skip clearing the terminal')
   .option('--verbose', 'Show detailed per-file parse errors')
+  .option('--jobs <number>', 'Number of parallel parse workers (default: CPU count - 1)')
   .action(generateCommand);
 
 program
@@ -49,6 +50,8 @@ program
   .description('Generate a semantic summary of the codebase using an LLM')
   .option('--reset', 'Reset saved API credentials and model configuration')
   .option('--model <name>', 'Override the configured LLM model to use')
+  .option('--concurrency <number>', 'Number of parallel LLM requests (default: 2, max: 5)', '2')
+  .option('--rpm <number>', 'Rate limit in requests per minute for the Groq API (default: 30)', '30')
   .action(explainCommand);
 
 program.parse(process.argv);
