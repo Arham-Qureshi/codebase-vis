@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
+import ignore from 'ignore';
 
 let tmpDir;
 
@@ -36,7 +37,8 @@ after(async () => {
 
 test('discovers .js, .ts, .py files', async () => {
   const { discoverFiles } = await import('../src/utils/traversal.js');
-  const files = await discoverFiles(tmpDir);
+  const ig = (await import('ignore')).default().add(['.git', 'node_modules', 'dist']);
+  const files = await discoverFiles(tmpDir, ig);
   const basenames = files.map(f => path.basename(f)).sort();
   assert.ok(basenames.includes('index.js'));
   assert.ok(basenames.includes('util.ts'));
@@ -45,7 +47,8 @@ test('discovers .js, .ts, .py files', async () => {
 
 test('excludes node_modules and dist and .git directories', async () => {
   const { discoverFiles } = await import('../src/utils/traversal.js');
-  const files = await discoverFiles(tmpDir);
+  const ig = (await import('ignore')).default().add(['.git', 'node_modules', 'dist']);
+  const files = await discoverFiles(tmpDir, ig);
   const basenames = files.map(f => path.basename(f));
   assert.ok(!basenames.includes('lib.js'), 'should exclude node_modules');
   assert.ok(!basenames.includes('bundle.js'), 'should exclude dist');
@@ -54,7 +57,8 @@ test('excludes node_modules and dist and .git directories', async () => {
 
 test('accepts custom ignore patterns', async () => {
   const { discoverFiles } = await import('../src/utils/traversal.js');
-  const files = await discoverFiles(tmpDir, ['src']);
+  const ig = (await import('ignore')).default().add(['src']);
+  const files = await discoverFiles(tmpDir, ig);
   const basenames = files.map(f => path.basename(f));
   assert.ok(!basenames.includes('index.js'));
   assert.ok(!basenames.includes('util.ts'));
@@ -62,8 +66,9 @@ test('accepts custom ignore patterns', async () => {
 
 test('discovers nothing in empty directory', async () => {
   const { discoverFiles } = await import('../src/utils/traversal.js');
+  const ig = (await import('ignore')).default();
   const emptyDir = path.join(tmpDir, 'empty');
   await fs.mkdir(emptyDir);
-  const files = await discoverFiles(emptyDir);
+  const files = await discoverFiles(emptyDir, ig);
   assert.equal(files.length, 0);
 });
