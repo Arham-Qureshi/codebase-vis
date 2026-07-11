@@ -12,6 +12,7 @@ const GLOBAL_CONFIG_DIR = path.join(os.homedir(), '.codebase-vis');
 const GLOBAL_CONFIG_PATH = path.join(GLOBAL_CONFIG_DIR, 'config.json');
 
 const SYSTEM_PROMPT = `You are an expert software architect. Analyze the provided JSON payload, which represents a cluster of mathematically connected files extracted via AST (Abstract Syntax Tree). Your goal is to write a concise semantic summary of what this cluster does, and briefly explain the role of each file. Do NOT write code. Keep explanations brief, structural, and strictly based on the provided AST data.`;
+const RETRY_STATE_FILENAME = '.explain-retry.json';
 
 class TokenBucket {
   #tokens;
@@ -257,6 +258,85 @@ async function callLLMWithRetry(apiKey, model, payload, bucket) {
 export async function explainCommand(options) {
   p.intro(pc.bgCyan(pc.black(' codebase-vis explain ')));
 
+  const retryPath = path.join(getOutDirPath(), RETRY_STATE_FILENAME);
+
+  // --retry
+  if (options.retry) {
+    let retryData;
+    try {
+      retryData = JSON.parse(await fs.readFile(retryPath, 'utf-8'));
+    } catch {
+      p.log.error(pc.red('No failed clusters found to retry.'));
+      p.outro(pc.dim('Nothing to retry.'));
+      return;
+    }
+    if (!Array.isArray(retryData) || retryData.length === 0) {
+      p.log.warn(pc.yellow('No failed clusters to retry.'));
+      p.outro(pc.dim('Done.'));
+      return;
+    }
+
+    const creds = await resolveCredentials(options);
+    if (!creds) {
+      p.cancel('Operation cancelled.');
+      return;
+    }
+
+    const graph = await loadGraph();
+    if (!graph) return;
+
+    const mdPath = path.join(getOutDirPath(), 'semantic-summary.md');
+    const graphPath = path.join(getOutDirPath(), 'graph.json');
+
+    const s = p.spinner();
+    s.start(`Retrying ${retryData.length} failed clusters...`);
+
+    const concurrency = options.concurrency ? Number(options.concurrency) : 2;
+    const rpm = options.rpm ? Number(options.rpm) : 30;
+    const bucket = new TokenBucket(rpm);
+
+    const completed = [];
+    const stillFailed = [];
+    const totalClusters = retryData[0].totalClusters;
+
+    for (let i = 0; i < retryData.length; i++) {
+      const fc = retryData[i];
+      s.message(`Retrying cluster ${fc.index + 1} (${i + 1}/${retryData.length})...`);
+      try {
+        const summary = await callLLMWithRetry(creds.apiKey, creds.model, fc.payload, bucket);
+        for (const nodeId of fc.batch) {
+          graph.setNodeAttribute(nodeId, 'semantic_summary', summary);
+        }
+        completed.push({ ...fc, summary });
+      } catch (err) {
+        p.log.warn(pc.yellow(`Cluster ${fc.index + 1} still failed: ${err.message}`));
+        stillFailed.push(fc);
+      }
+    }
+
+    if (completed.length > 0) {
+      let mdContent = `\n## Retried Clusters\n\n`;
+      for (const fc of completed) {
+        mdContent += `### Cluster ${fc.index + 1} of ${totalClusters}\n\n${fc.summary}\n\n---\n\n`;
+      }
+      await fs.appendFile(mdPath, mdContent, 'utf-8');
+      s.stop(pc.green(`${completed.length}/${retryData.length} clusters retried successfully.`));
+    } else {
+      s.stop(pc.red('No clusters could be retried.'));
+    }
+
+    if (stillFailed.length > 0) {
+      await fs.writeFile(retryPath, JSON.stringify(stillFailed, null, 2), 'utf-8');
+      p.log.info(pc.dim('Run ') + pc.cyan('codebase-vis explain --retry') + pc.dim(' to retry remaining failed clusters.'));
+    } else {
+      await fs.rm(retryPath);
+    }
+
+    await fs.writeFile(graphPath, JSON.stringify(graph.export(), null, 2), 'utf-8');
+    p.outro(pc.green('✔') + pc.dim(' Retry complete.'));
+    return;
+  }
+
   const creds = await resolveCredentials(options);
   if (!creds) {
     p.cancel('Operation cancelled.');
@@ -294,7 +374,6 @@ export async function explainCommand(options) {
   const bucket = new TokenBucket(rpm);
 
   s.start(`Analyzing clusters... (0/${batches.length})`);
-  let filesProcessed = 0;
 
   const results = await mapConcurrent(batches, concurrency, async (batch, index) => {
     const payload = extractPayload(graph, batch);
@@ -307,18 +386,25 @@ export async function explainCommand(options) {
   const graphPath = path.join(getOutDirPath(), 'graph.json');
   const mdPath = path.join(getOutDirPath(), 'semantic-summary.md');
   const mdSections = [];
+  const failedClusters = [];
 
-  for (const result of results) {
+  for (let i = 0; i < results.length; i++) {
+    const result = results[i];
     if (result.status !== 'fulfilled') {
-      const failedIdx = result.value?.index ?? results.indexOf(result);
-      p.log.warn(pc.yellow(`Cluster ${failedIdx + 1} failed: ${result.reason.message}`));
+      p.log.warn(pc.yellow(`Cluster ${i + 1} failed: ${result.reason.message}`));
+      failedClusters.push({
+        index: i,
+        batch: batches[i],
+        payload: extractPayload(graph, batches[i]),
+        error: result.reason.message,
+        totalClusters: batches.length,
+      });
       continue;
     }
     const { batch, summary, index } = result.value;
     for (const nodeId of batch) {
       graph.setNodeAttribute(nodeId, 'semantic_summary', summary);
     }
-    filesProcessed += batch.length;
     mdSections.push({ index, summary });
   }
 
@@ -333,7 +419,14 @@ export async function explainCommand(options) {
     await fs.appendFile(mdPath, section, 'utf-8');
   }
 
-  s.stop(pc.green(`All ${batches.length} clusters analyzed.`));
+  const failedCount = failedClusters.length;
+  if (failedCount > 0) {
+    await fs.writeFile(retryPath, JSON.stringify(failedClusters, null, 2), 'utf-8');
+    s.stop(pc.yellow(`${batches.length - failedCount}/${batches.length} clusters analyzed (${failedCount} failed)`));
+    p.log.info(pc.dim('Tip: Run ') + pc.cyan('codebase-vis explain --retry') + pc.dim(' to retry only the failed clusters.'));
+  } else {
+    s.stop(pc.green(`All ${batches.length} clusters analyzed.`));
+  }
 
   const relMdPath = path.relative(process.cwd(), mdPath);
   p.log.success(
