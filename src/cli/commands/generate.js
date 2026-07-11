@@ -1,6 +1,8 @@
 import * as p from '@clack/prompts';
 import pc from 'picocolors';
 import path from 'node:path';
+import fs from 'node:fs/promises';
+import ignore from 'ignore';
 import { createOutDir, safeWriteFile } from '../../utils/file-system.js';
 import { discoverFiles } from '../../utils/traversal.js';
 import { detectTechStack } from '../../parser/stack-detector.js';
@@ -9,20 +11,83 @@ import { buildGraph } from '../../graph/builder.js';
 import { exportGraphToJson } from '../../graph/formatter.js';
 import { getHtmlTemplate } from '../../templates/graph-template.js';
 
-// generate => the primary workhorse
+const HARDCODED_IGNORES = [
+  '.git',
+  'codebase-out',
+  '.env',
+  'node_modules',
+  '.agentignore',
+  '.gitignore',
+  '.npmignore',
+  '.dockerignore',
+  '.opencode',
+  '.agents',
+  '.github',
+  'LICENSE',
+  'LICENSE.md',
+  'README.md',
+  'CHANGELOG.md',
+  'CONTRIBUTING.md',
+  'to-be-done-fix',
+  'to-be-done-*',
+];
+
+const NON_CODE_PATTERNS = [
+  '*.txt',
+  '*.md',
+  '*.json',
+  '*.yaml',
+  '*.yml',
+  '*.toml',
+  '*.cfg',
+  '*.ini',
+  '*.log',
+  '*.csv',
+  '*.svg',
+  '*.png',
+  '*.jpg',
+  '*.jpeg',
+  '*.gif',
+  '*.ico',
+  '*.woff',
+  '*.woff2',
+  '*.eot',
+  '*.ttf',
+  '*.otf',
+  '*.pdf',
+];
+
+const STACK_IGNORES = {
+  node: ['node_modules', 'dist', 'build', '.next'],
+  nextjs: ['node_modules', 'dist', 'build', '.next'],
+  react: ['node_modules', 'dist', 'build'],
+  python: ['venv', '__pycache__', '.pytest_cache', '*.pyc', 'dist', 'build'],
+  cpp: ['build', 'cmake-build-*', '.vscode'],
+};
+
+async function readAgentignore(rootDir) {
+  try {
+    const raw = await fs.readFile(path.join(rootDir, '.agentignore'), 'utf8');
+    return raw.split('\n')
+      .map(l => l.trim())
+      .filter(l => l && !l.startsWith('#'));
+  } catch {
+    return [];
+  }
+}
+
+function buildIgnoreInstance(hardcoded, dynamic, nonCode, agentignore, cliIgnores) {
+  const ig = ignore().add([...hardcoded, ...dynamic, ...nonCode, ...agentignore, ...cliIgnores]);
+  return ig;
+}
+
 export async function generateCommand(paths = [], options = {}) {
   if (options.clear !== false) console.clear();
   p.intro(pc.bgCyan(pc.black(' agent-context generate ')));
 
-  // resolve target directories — default to cwd if none specified
   const targetDirs = paths.length > 0
     ? paths.map(p => path.resolve(process.cwd(), p))
     : [process.cwd()];
-
-  // parse --ignore flag into an array
-  const customIgnores = options.ignore
-    ? options.ignore.split(',').map(s => s.trim())
-    : [];
 
   const s = p.spinner();
 
@@ -30,21 +95,29 @@ export async function generateCommand(paths = [], options = {}) {
   const outDir = await createOutDir();
   s.stop(pc.green(`Output directory ready at ${pc.bold(outDir)}`));
 
-  // Detecting tech stack
   s.start('Detecting tech stack...');
   const stack = await detectTechStack(process.cwd());
   s.stop(pc.green(`Tech stack detected: ${pc.bold(stack.type)}`));
 
+  s.start('Reading .agentignore...');
+  const agentignorePatterns = await readAgentignore(process.cwd());
+  s.stop(pc.green(`.agentignore loaded (${agentignorePatterns.length} patterns)`));
+
+  const cliIgnores = options.ignore
+    ? options.ignore.split(',').map(s => s.trim())
+    : [];
+
+  const dynamicIgnores = STACK_IGNORES[stack.type] || [];
+  const ig = buildIgnoreInstance(HARDCODED_IGNORES, dynamicIgnores, NON_CODE_PATTERNS, agentignorePatterns, cliIgnores);
+
   s.start('Discovering files...');
   const files = [];
   for (const dir of targetDirs) {
-    const found = await discoverFiles(dir, customIgnores);
+    const found = await discoverFiles(dir, ig);
     files.push(...found);
   }
   s.stop(pc.green(`Found ${pc.bold(files.length)} files`));
 
-  // Parsing AST and extracting dependencies
-  s.start('Parsing AST and extracting dependencies...');
   const allResults = await parseFileBatch(files, (done, total) => {
     s.message(`Parsing files... ${done}/${total}`);
   }, options.jobs ? Number(options.jobs) : undefined);
