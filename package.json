@@ -20,7 +20,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Arham-Qureshi/agent-context.git"
+    "url": "git+https://github.com/Arham-Qureshi/codebase-vis.git"
   },
   "keywords": [
     "codebase",
@@ -34,9 +34,9 @@
   "author": "Arham_Q",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/Arham-Qureshi/agent-context/issues"
+    "url": "https://github.com/Arham-Qureshi/codebase-vis/issues"
   },
-  "homepage": "https://github.com/Arham-Qureshi/agent-context#readme",
+  "homepage": "https://github.com/Arham-Qureshi/codebase-vis#readme",
   "engines": {
     "node": ">=18"
   },
