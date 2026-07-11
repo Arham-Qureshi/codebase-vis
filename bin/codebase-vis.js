@@ -56,7 +56,7 @@ async function checkForUpdate() {
 const program = new Command();
 
 program
-  .name('agent-context')
+  .name('codebase-vis')
   .version(version)
   .description('A local CLI tool that parses codebases, builds dependency graphs, and outputs interactive architecture visualizations.');
 
