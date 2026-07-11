@@ -27,7 +27,7 @@ async function createFixture() {
 }
 
 before(async () => {
-  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-context-traversal-'));
+  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'codebase-vis-traversal-'));
   await createFixture();
 });
 

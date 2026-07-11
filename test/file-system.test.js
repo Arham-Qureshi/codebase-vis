@@ -9,7 +9,7 @@ let origCwd;
 
 before(async () => {
   origCwd = process.cwd();
-  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-context-test-'));
+  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'codebase-vis-test-'));
   process.chdir(tmpDir);
 });
 
