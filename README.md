@@ -6,6 +6,10 @@
 
 A local CLI tool that parses codebases, builds dependency graphs from AST analysis, and outputs interactive architecture visualizations.
 
+![codebase-vis serve](usage/serve.png)
+
+> See [USAGE.md](USAGE.md) for command examples and screenshots.
+
 ## Features
 
 - **AST-based parsing** — extracts real dependency relationships using language grammars, not regex
