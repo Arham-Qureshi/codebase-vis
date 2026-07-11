@@ -47,6 +47,7 @@
     "commander": "^15.0.0",
     "graphology": "^0.26.0",
     "graphology-communities-louvain": "^2.0.2",
+    "ignore": "^7.0.6",
     "picocolors": "^1.1.1",
     "tree-sitter": "^0.21.1",
     "tree-sitter-cpp": "^0.21.0",
