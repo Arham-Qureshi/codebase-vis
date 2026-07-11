@@ -2,19 +2,53 @@ import * as p from '@clack/prompts';
 import pc from 'picocolors';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { detectTechStack } from '../../parser/stack-detector.js';
 
-const DEFAULT_IGNORES = [
-  'node_modules/',
-  'dist/',
-  'build/',
-  '.git/',
-  '.next/',
-  'coverage/',
+const COMMON_IGNORES = [
+  '.git',
+  'codebase-out',
   '.env',
-  'codebase-out/',
+  '.env.local',
+  '.env.*.local',
 ];
 
-// init => sets up .agentignore in the user's project root
+const NON_CODE_PATTERNS = [
+  '*.txt',
+  '*.md',
+  '*.json',
+  '*.yaml',
+  '*.yml',
+  '*.toml',
+  '*.cfg',
+  '*.ini',
+  '*.log',
+  '*.csv',
+  '*.svg',
+  '*.png',
+  '*.jpg',
+  '*.jpeg',
+  '*.gif',
+  '*.ico',
+  '*.woff',
+  '*.woff2',
+  '*.eot',
+  '*.ttf',
+  '*.otf',
+  '*.pdf',
+];
+
+const STACK_IGNORES = {
+  node: ['node_modules/', 'dist/', 'build/', '.next/'],
+  nextjs: ['node_modules/', 'dist/', 'build/', '.next/'],
+  react: ['node_modules/', 'dist/', 'build/'],
+  python: ['venv/', '__pycache__/', '.pytest_cache/', '*.pyc', 'dist/', 'build/'],
+  cpp: ['build/', 'cmake-build-*/', '.vscode/'],
+};
+
+function getStackIgnores(stackType) {
+  return STACK_IGNORES[stackType] || [];
+}
+
 export async function initCommand() {
   const agentignorePath = path.resolve(process.cwd(), '.agentignore');
 
@@ -29,9 +63,65 @@ export async function initCommand() {
   }
 
   const s = p.spinner();
+  s.start('Detecting tech stack...');
+  const stack = await detectTechStack(process.cwd());
+  s.stop(pc.green(`Tech stack detected: ${pc.bold(stack.type)}`));
+
+  const stackIgnores = getStackIgnores(stack.type);
+
+  const lines = [
+    '# agent-context ignore file',
+    '# Add paths below to exclude from parsing',
+    '',
+    '# --- Non-code files ---',
+    '*.txt',
+    '*.md',
+    '*.json',
+    '*.yaml',
+    '*.yml',
+    '*.toml',
+    '*.cfg',
+    '*.ini',
+    '*.log',
+    '*.csv',
+    '*.svg',
+    '*.png',
+    '*.jpg',
+    '*.jpeg',
+    '*.gif',
+    '*.ico',
+    '*.woff',
+    '*.woff2',
+    '*.eot',
+    '*.ttf',
+    '*.otf',
+    '*.pdf',
+    '',
+    '# --- Config / planning directories ---',
+    '.agents/',
+    '.opencode/',
+    '.agentignore',
+    '',
+    '# --- Version control ---',
+    '.git/',
+    '',
+    '# --- Output ---',
+    'codebase-out/',
+    '',
+    '# --- Environment ---',
+    '.env',
+    '.env.local',
+    '.env.*.local',
+    '',
+    `# --- ${stack.type} project ---`,
+    ...stackIgnores.map(i => i.endsWith('/') ? i : i + '/'),
+    '',
+    '# --- Add your custom patterns below ---',
+  ];
+
   s.start('Creating .agentignore');
 
-  const content = `# agent-context ignore file\n# Add paths below to exclude from parsing\n\n${DEFAULT_IGNORES.join('\n')}\n`;
+  const content = lines.join('\n') + '\n';
   await fs.writeFile(agentignorePath, content, 'utf-8');
 
   s.stop(pc.green('.agentignore created successfully'));
