@@ -1,37 +1,19 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-const BASELINE_IGNORES = new Set([
-  'node_modules',
-  'dist',
-  'build',
-  '.git',
-  '.next',
-  'coverage',
-  '.agent',
-  'codebase-out',
-]);
-
-const ALLOWED_EXTENSIONS = new Set([
-  '.js', '.jsx', '.ts', '.tsx',
-  '.py',
-  '.cpp', '.h', '.hpp',
-  '.html', '.css',
-]);
-
 const MAX_FILE_SIZE = 2 * 1024 * 1024;
 const DIR_CONCURRENCY = 32;
 
-export async function discoverFiles(targetDir, customIgnores = []) {
-  const ignoreSet = new Set([...BASELINE_IGNORES, ...customIgnores]);
+export async function discoverFiles(targetDir, ig) {
   const results = [];
+  const root = path.resolve(targetDir);
 
   async function walk(dir) {
     const entries = await fs.readdir(dir);
-    const filtered = entries.filter(e => !ignoreSet.has(e));
+    const relDir = path.relative(root, dir) || '.';
 
     const stats = await Promise.all(
-      filtered.map(e =>
+      entries.map(e =>
         fs.lstat(path.join(dir, e))
           .then(s => ({ name: e, stats: s }))
           .catch(() => null)
@@ -42,13 +24,16 @@ export async function discoverFiles(targetDir, customIgnores = []) {
 
     for (const item of stats) {
       if (!item || item.stats.isSymbolicLink()) continue;
+
+      const relPath = relDir === '.' ? item.name : path.join(relDir, item.name);
+
+      if (ig.ignores(relPath)) continue;
+
       const fullPath = path.join(dir, item.name);
       if (item.stats.isDirectory()) {
         dirPromises.push(walk(fullPath));
       } else if (item.stats.isFile()) {
         if (item.stats.size > MAX_FILE_SIZE) continue;
-        const ext = path.extname(item.name).toLowerCase();
-        if (!ALLOWED_EXTENSIONS.has(ext)) continue;
         results.push(path.resolve(fullPath));
       }
     }
@@ -58,6 +43,6 @@ export async function discoverFiles(targetDir, customIgnores = []) {
     }
   }
 
-  await walk(path.resolve(targetDir));
+  await walk(root);
   return results;
 }
