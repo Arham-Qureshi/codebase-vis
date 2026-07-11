@@ -19,12 +19,12 @@ export async function serveCommand(options = {}) {
   const port = parseInt(options.port, 10) || 3000;
   const outDir = getOutDirPath();
 
-  p.intro(pc.bgMagenta(pc.white(' agent-context serve ')));
+  p.intro(pc.bgMagenta(pc.white(' codebase-vis serve ')));
 
   try {
     await fs.access(outDir);
   } catch {
-    p.log.error(pc.red('codebase-out/ not found. Run ') + pc.cyan('agent-context generate') + pc.red(' first.'));
+    p.log.error(pc.red('codebase-out/ not found. Run ') + pc.cyan('codebase-vis generate') + pc.red(' first.'));
     p.outro(pc.dim('Nothing to serve.'));
     return;
   }

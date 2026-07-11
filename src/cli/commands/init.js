@@ -52,12 +52,12 @@ function getStackIgnores(stackType) {
 export async function initCommand() {
   const agentignorePath = path.resolve(process.cwd(), '.agentignore');
 
-  p.intro(pc.bgCyan(pc.black(' agent-context init ')));
+  p.intro(pc.bgCyan(pc.black(' codebase-vis init ')));
 
   try {
     await fs.access(agentignorePath);
     p.log.warn(pc.yellow('.agentignore already exists. Aborting to prevent overwriting.'));
-    p.outro(pc.dim('Edit the existing .agentignore file, then run ') + pc.cyan('agent-context generate'));
+    p.outro(pc.dim('Edit the existing .agentignore file, then run ') + pc.cyan('codebase-vis generate'));
     return;
   } catch {
   }
@@ -70,7 +70,7 @@ export async function initCommand() {
   const stackIgnores = getStackIgnores(stack.type);
 
   const lines = [
-    '# agent-context ignore file',
+    '# codebase-vis ignore file',
     '# Add paths below to exclude from parsing',
     '',
     '# --- Non-code files ---',
@@ -125,5 +125,5 @@ export async function initCommand() {
   await fs.writeFile(agentignorePath, content, 'utf-8');
 
   s.stop(pc.green('.agentignore created successfully'));
-  p.outro(pc.dim('Edit the file to customise, then run ') + pc.cyan('agent-context generate'));
+  p.outro(pc.dim('Edit the file to customise, then run ') + pc.cyan('codebase-vis generate'));
 }

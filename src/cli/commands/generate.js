@@ -83,7 +83,7 @@ function buildIgnoreInstance(hardcoded, dynamic, nonCode, agentignore, cliIgnore
 
 export async function generateCommand(paths = [], options = {}) {
   if (options.clear !== false) console.clear();
-  p.intro(pc.bgCyan(pc.black(' agent-context generate ')));
+  p.intro(pc.bgCyan(pc.black(' codebase-vis generate ')));
 
   const targetDirs = paths.length > 0
     ? paths.map(p => path.resolve(process.cwd(), p))
@@ -156,5 +156,5 @@ export async function generateCommand(paths = [], options = {}) {
 
   p.log.info(pc.dim(`Parsed data length: ${parsedData.length}`));
 
-  p.outro(pc.green('✔') + pc.dim(' Generation complete. Run ') + pc.cyan('agent-context serve') + pc.dim(' to view.'));
+  p.outro(pc.green('✔') + pc.dim(' Generation complete. Run ') + pc.cyan('codebase-vis serve') + pc.dim(' to view.'));
 }

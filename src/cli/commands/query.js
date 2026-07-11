@@ -5,14 +5,14 @@ import { loadGraph, resolveNode, formatNodeLabel, toRelative } from '../shared.j
 
 // query => look up a node's dependencies and dependents
 export async function queryCommand(target) {
-  p.intro(pc.bgCyan(pc.black(' agent-context query ')));
+  p.intro(pc.bgCyan(pc.black(' codebase-vis query ')));
 
   const s = p.spinner();
   s.start('Loading graph');
   const graph = await loadGraph();
   if (!graph) {
     s.stop(pc.red('Failed'));
-    p.log.error(pc.red('graph.json not found. Run ') + pc.cyan('agent-context generate') + pc.red(' first.'));
+    p.log.error(pc.red('graph.json not found. Run ') + pc.cyan('codebase-vis generate') + pc.red(' first.'));
     p.outro(pc.dim('Nothing to query.'));
     return;
   }

@@ -5,7 +5,7 @@ import { getOutDirPath } from '../../utils/file-system.js';
 
 // clean => safely deletes the codebase-out/ directory after confirmation
 export async function cleanCommand() {
-  p.intro(pc.bgRed(pc.white(' agent-context clean ')));
+  p.intro(pc.bgRed(pc.white(' codebase-vis clean ')));
 
   const outDir = getOutDirPath();
 
