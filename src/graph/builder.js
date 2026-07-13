@@ -34,6 +34,14 @@ export function buildGraph(parsedData) {
         graph.addEdge(data.id, entityId, { relation: 'contains' });
       }
 
+      for (const method of [...new Set(entities.methods || [])]) {
+        const entityId = `${data.id}::${method}`;
+        if (!graph.hasNode(entityId)) {
+          graph.addNode(entityId, { label: method, kind: 'method' });
+          graph.addEdge(data.id, entityId, { relation: 'contains' });
+        }
+      }
+
       if (entities.docstrings && entities.docstrings.length > 0) {
         graph.setNodeAttribute(data.id, 'docstrings', entities.docstrings);
       }
