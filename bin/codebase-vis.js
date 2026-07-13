@@ -235,7 +235,15 @@ program
   .action(explainCommand);
 
 program.hook('postAction', async () => {
+  const start = process.__codebaseVisStartTime || program._actionTime;
+  const elapsed = Date.now() - start;
+  delete process.__codebaseVisStartTime;
+  console.error(picocolors.dim(`\n  ⏱ ${elapsed}ms`));
   await checkForUpdate();
+});
+
+program.hook('preAction', () => {
+  program._actionTime = Date.now();
 });
 
 program.parse(process.argv);
