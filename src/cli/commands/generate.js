@@ -10,6 +10,7 @@ import { parseFileBatch } from '../../parser/index.js';
 import { buildGraph } from '../../graph/builder.js';
 import { exportGraphToJson } from '../../graph/formatter.js';
 import { getHtmlTemplate } from '../../templates/graph-template.js';
+import { loadCache, saveCache, splitFilesByCache, getStalePaths, buildUpdatedCache } from '../../utils/cache.js';
 
 const HARDCODED_IGNORES = [
   '.git',
@@ -118,30 +119,62 @@ export async function generateCommand(paths = [], options = {}) {
   }
   s.stop(pc.green(`Found ${pc.bold(files.length)} files`));
 
-  const allResults = await parseFileBatch(files, (done, total) => {
-    s.message(`Parsing files... ${done}/${total}`);
-  }, options.jobs ? Number(options.jobs) : undefined);
-  const parsedData = [];
-  const errors = [];
-  for (const result of allResults) {
-    if (result && !result.error) {
-      parsedData.push(result);
-    } else if (options.verbose) {
-      errors.push(result.id);
+  s.start('Checking file cache...');
+  const cache = await loadCache(outDir);
+  const discoveredSet = new Set(files);
+
+  let allParsed = [];
+  let parseErrors = [];
+  let toParse = files;
+  let cachedResults = [];
+  let stalePaths = [];
+  let cachedCount = 0;
+
+  if (cache) {
+    const split = await splitFilesByCache(files, cache);
+    toParse = split.toParse;
+    cachedResults = split.cachedResults;
+    stalePaths = getStalePaths(cache, discoveredSet);
+    cachedCount = cachedResults.length;
+
+    for (const r of cachedResults) {
+      if (r && !r.error) allParsed.push(r);
     }
   }
-  s.stop(pc.green(`Parsed ${pc.bold(parsedData.length)} files successfully`));
-  if (errors.length > 0) {
-    p.log.warn(pc.yellow(`${errors.length} file(s) failed to parse. Use --verbose to see details.`));
+
+  let freshResults = [];
+  if (toParse.length > 0) {
+    s.message(cache ? `Parsing ${toParse.length} changed file(s)...` : 'Parsing files...');
+    freshResults = await parseFileBatch(toParse, (done, total) => {
+      s.message(`Parsing files... ${done}/${total}`);
+    }, options.jobs ? Number(options.jobs) : undefined);
+
+    for (const result of freshResults) {
+      if (result && !result.error) {
+        allParsed.push(result);
+      } else if (options.verbose) {
+        parseErrors.push(result?.id || 'unknown');
+      }
+    }
   }
-  if (options.verbose && errors.length > 0) {
-    for (const file of errors) {
+
+  if (cache) {
+    s.stop(pc.green(`Files ready — ${pc.bold(toParse.length)} parsed, ${pc.bold(cachedCount)} from cache${stalePaths.length ? `, ${pc.dim(stalePaths.length + ' stale removed')}` : ''}`));
+  } else {
+    s.stop(pc.green(`Parsed ${pc.bold(allParsed.length)} files successfully`));
+  }
+
+  if (parseErrors.length > 0) {
+    p.log.warn(pc.yellow(`${parseErrors.length} file(s) failed to parse. Use --verbose to see details.`));
+  }
+  if (options.verbose && parseErrors.length > 0) {
+    for (const file of parseErrors) {
       p.log.warn(pc.dim(`  ${path.relative(process.cwd(), file)}`));
     }
   }
 
   s.start('Building dependency graph...');
-  const graph = buildGraph(parsedData);
+  const graph = buildGraph(allParsed);
   s.stop(pc.green(`Graph built: ${pc.bold(graph.order)} nodes, ${pc.bold(graph.size)} edges`));
 
   s.start('Writing graph.json...');
@@ -154,7 +187,10 @@ export async function generateCommand(paths = [], options = {}) {
   await safeWriteFile(htmlPath, html);
   s.stop(pc.green('graph.html generated in codebase-out/'));
 
-  p.log.info(pc.dim(`Parsed data length: ${parsedData.length}`));
+  s.start('Saving file cache...');
+  const updatedCache = await buildUpdatedCache(cache || {}, toParse, freshResults, stalePaths);
+  await saveCache(outDir, updatedCache);
+  s.stop(pc.green('Cache saved'));
 
   p.outro(pc.green('✔') + pc.dim(' Generation complete. Run ') + pc.cyan('codebase-vis serve') + pc.dim(' to view.'));
 }
