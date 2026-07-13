@@ -32,6 +32,10 @@ export async function loadGraph() {
   return graph;
 }
 
+export function resetTimer() {
+  process.__codebaseVisStartTime = Date.now();
+}
+
 export async function resolveNode(graph, target) {
   if (graph.hasNode(target)) return target;
 
