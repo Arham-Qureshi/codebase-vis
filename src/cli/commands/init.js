@@ -125,5 +125,6 @@ export async function initCommand() {
   await fs.writeFile(agentignorePath, content, 'utf-8');
 
   s.stop(pc.green('.agentignore created successfully'));
+  p.log.info(pc.dim('NOTE: Review the file and remove any patterns for files that are not source code (e.g., docs, configs, assets) to reduce parsing overhead.'));
   p.outro(pc.dim('Edit the file to customise, then run ') + pc.cyan('codebase-vis generate'));
 }
