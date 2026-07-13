@@ -1,6 +1,6 @@
 import * as p from '@clack/prompts';
 import pc from 'picocolors';
-import { loadGraph, resolveNode, formatNodeLabel, toRelative } from '../shared.js';
+import { loadGraph, resolveNode, formatNodeLabel, toRelative, resetTimer } from '../shared.js';
 
 // Bidirectional BFS — searches from source (forward) and target (backward)
 // simultaneously, meeting in the middle for exponential speedup
@@ -107,6 +107,7 @@ export async function pathCommand(source, target) {
     p.outro(pc.dim('Try a different search term.'));
     return;
   }
+  resetTimer();
 
   // Run Bidirectional BFS
   s.start('Computing shortest path (Bidirectional BFS)');

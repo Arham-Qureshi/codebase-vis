@@ -1,7 +1,7 @@
 import * as p from '@clack/prompts';
 import pc from 'picocolors';
 import path from 'node:path';
-import { loadGraph, resolveNode, formatNodeLabel, toRelative } from '../shared.js';
+import { loadGraph, resolveNode, formatNodeLabel, toRelative, resetTimer } from '../shared.js';
 
 // query => look up a node's dependencies and dependents
 export async function queryCommand(target) {
@@ -26,6 +26,7 @@ export async function queryCommand(target) {
     p.outro(pc.dim('Try a different search term.'));
     return;
   }
+  resetTimer();
 
   const attrs = graph.getNodeAttributes(nodeId);
   const relPath = toRelative(nodeId);
