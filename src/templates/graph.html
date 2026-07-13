@@ -365,7 +365,7 @@
       const rawNodes = data.nodes.map(n => {
         const a = n.attributes;
         const id = n.key;
-        const isEntity = ['entity', 'class', 'function'].includes(a.kind);
+        const isEntity = ['entity', 'class', 'function', 'method'].includes(a.kind);
         const isExternal = a.external;
         const deg = degree[id] || 0;
         const color = a.color || '#94a3b8';
@@ -426,11 +426,12 @@
       const edgesDS = new vis.DataSet(rawEdges);
 
       // 6. Compute stats
-      let fileCount = 0, classCount = 0, funcCount = 0, entityCount = 0;
+      let fileCount = 0, classCount = 0, funcCount = 0, methodCount = 0, entityCount = 0;
       const communityMap = new Map();
       for (const n of rawNodes) {
         if (n._kind === 'class') classCount++;
         else if (n._kind === 'function') funcCount++;
+        else if (n._kind === 'method') methodCount++;
         else if (n._kind === 'entity') entityCount++;
         else if (n._kind === 'file') fileCount++;
         const c = n._community;
@@ -449,14 +450,14 @@
           enabled: true,
           solver: 'forceAtlas2Based',
           forceAtlas2Based: {
-            gravitationalConstant: -60,
-            centralGravity: 0.005,
-            springLength: 150,
-            springConstant: 0.08,
+            gravitationalConstant: -120,
+            centralGravity: 0.002,
+            springLength: 120,
+            springConstant: 0.06,
             damping: 0.4,
             avoidOverlap: 0.8,
           },
-          stabilization: { iterations: 200, fit: true },
+          stabilization: { iterations: 300, fit: true },
         },
         interaction: {
           hover: true,
@@ -485,14 +486,14 @@
         hoveredNodeId = params.node;
         container.style.cursor = 'pointer';
         const nd = nodesDS.get(params.node);
-        if (nd && ['entity', 'class', 'function'].includes(nd._kind)) {
+        if (nd && ['entity', 'class', 'function', 'method'].includes(nd._kind)) {
           nodesDS.update({ id: params.node, font: { size: 10, color: '#ffffff', face: 'Inter, sans-serif' } });
         }
       });
       network.on('blurNode', () => {
         if (hoveredNodeId) {
           const nd = nodesDS.get(hoveredNodeId);
-          if (nd && ['entity', 'class', 'function'].includes(nd._kind)) {
+          if (nd && ['entity', 'class', 'function', 'method'].includes(nd._kind)) {
             nodesDS.update({ id: hoveredNodeId, font: { size: 0 } });
           }
         }
@@ -586,9 +587,9 @@
         legendEl.appendChild(item);
       });
 
-      const totalEntities = classCount + funcCount + entityCount;
+      const totalEntities = classCount + funcCount + methodCount + entityCount;
       document.getElementById('stats').textContent =
-        fileCount + ' files \u00B7 ' + totalEntities + ' entities (' + classCount + ' classes, ' + funcCount + ' functions) \u00B7 ' + rawEdges.length + ' edges \u00B7 ' + communityMap.size + ' modules';
+        fileCount + ' files \u00B7 ' + totalEntities + ' entities (' + classCount + ' classes, ' + funcCount + ' functions, ' + methodCount + ' methods) \u00B7 ' + rawEdges.length + ' edges \u00B7 ' + communityMap.size + ' modules';
 
       // 14. Info panel
       function showInfo(nodeId) {
@@ -604,7 +605,7 @@
 
         let extra = '';
         let moduleLabel = esc(n._community || '-');
-        if (['entity', 'class', 'function'].includes(n._kind)) {
+        if (['entity', 'class', 'function', 'method'].includes(n._kind)) {
           const sepIdx = nodeId.lastIndexOf('::');
           const parentFile = sepIdx !== -1 ? nodeId.slice(0, sepIdx) : nodeId;
           moduleLabel = 'entities';
