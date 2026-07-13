@@ -42,7 +42,8 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      background: #0f172a;
+      gap: 20px;
+      background: #121212;
       z-index: 100;
       transition: opacity 0.5s ease;
     }
@@ -52,26 +53,46 @@
       pointer-events: none;
     }
 
-    .spinner {
-      width: 36px;
-      height: 36px;
-      border: 3px solid #1e293b;
-      border-top-color: #4E79A7;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      margin-bottom: 14px;
+    .graph-spinner {
+      width: 52px;
+      height: 52px;
     }
 
-    @keyframes spin {
-      to {
-        transform: rotate(360deg);
-      }
+    @keyframes node-pulse {
+      0%, 100% { transform: scale(1); opacity: 0.4; }
+      50% { transform: scale(1.6); opacity: 1; }
     }
+
+    @keyframes edge-pulse {
+      0%, 100% { opacity: 0.12; }
+      50% { opacity: 0.5; }
+    }
+
+    .graph-spinner .node {
+      fill: #4E79A7;
+      transform-box: fill-box;
+      transform-origin: center;
+    }
+
+    .graph-spinner .n0 { animation: node-pulse 2.8s ease-in-out infinite; }
+    .graph-spinner .n1 { animation: node-pulse 2.8s ease-in-out 0.35s infinite; }
+    .graph-spinner .n2 { animation: node-pulse 2.8s ease-in-out 0.7s infinite; }
+    .graph-spinner .n3 { animation: node-pulse 2.8s ease-in-out 1.05s infinite; }
+    .graph-spinner .n4 { animation: node-pulse 2.8s ease-in-out 1.4s infinite; }
+
+    .graph-spinner .e0 { animation: edge-pulse 3.6s ease-in-out infinite; }
+    .graph-spinner .e1 { animation: edge-pulse 3.6s ease-in-out 0.45s infinite; }
+    .graph-spinner .e2 { animation: edge-pulse 3.6s ease-in-out 0.9s infinite; }
+    .graph-spinner .e3 { animation: edge-pulse 3.6s ease-in-out 1.35s infinite; }
+    .graph-spinner .e4 { animation: edge-pulse 3.6s ease-in-out 1.8s infinite; }
+    .graph-spinner .e5 { animation: edge-pulse 3.6s ease-in-out 2.25s infinite; }
+    .graph-spinner .e6 { animation: edge-pulse 3.6s ease-in-out 2.7s infinite; }
+    .graph-spinner .e7 { animation: edge-pulse 3.6s ease-in-out 3.15s infinite; }
 
     #loading-overlay span {
       font-size: 13px;
-      color: #94a3b8;
-      letter-spacing: 0.03em;
+      color: #64748b;
+      letter-spacing: 0.04em;
     }
 
     #sidebar {
@@ -275,7 +296,25 @@
 <body>
   <div id="graph-container">
     <div id="loading-overlay">
-      <div class="spinner"></div>
+      <svg class="graph-spinner" viewBox="0 0 80 80">
+        <g stroke="#4E79A7" stroke-width="1.5" stroke-linecap="round">
+          <line class="e0" x1="40" y1="12" x2="66" y2="31" />
+          <line class="e1" x1="66" y1="31" x2="56" y2="60" />
+          <line class="e2" x1="56" y1="60" x2="24" y2="60" />
+          <line class="e3" x1="24" y1="60" x2="14" y2="31" />
+          <line class="e4" x1="14" y1="31" x2="40" y2="12" />
+          <line class="e5" x1="40" y1="12" x2="56" y2="60" />
+          <line class="e6" x1="40" y1="12" x2="24" y2="60" />
+          <line class="e7" x1="66" y1="31" x2="24" y2="60" />
+        </g>
+        <g fill="#4E79A7">
+          <circle class="node n0" cx="40" cy="12" r="4" />
+          <circle class="node n1" cx="66" cy="31" r="4" />
+          <circle class="node n2" cx="56" cy="60" r="4" />
+          <circle class="node n3" cx="24" cy="60" r="4" />
+          <circle class="node n4" cx="14" cy="31" r="4" />
+        </g>
+      </svg>
       <span>Computing layout&hellip;</span>
     </div>
   </div>
