@@ -4,7 +4,6 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import Graph from 'graphology';
-import louvain from 'graphology-communities-louvain';
 import { loadGraph, toRelative } from '../shared.js';
 import { getOutDirPath } from '../../utils/file-system.js';
 
@@ -147,13 +146,13 @@ async function resolveCredentials(options = {}) {
 }
 
 function clusterGraph(graph) {
-  const workGraph = graph.copy();
-  louvain.assign(workGraph);
-
+  // Communities are pre-calculated by the enricher during `generate`.
+  // We just group file nodes by their existing community attribute.
   const clusters = new Map();
 
-  workGraph.forEachNode((node, attrs) => {
-    if (attrs.external || attrs.kind === 'entity') return;
+  graph.forEachNode((node, attrs) => {
+    if (attrs.external) return;
+    if (['entity', 'class', 'function', 'method'].includes(attrs.kind)) return;
 
     const communityId = attrs.community;
     if (!clusters.has(communityId)) {
