@@ -216,6 +216,60 @@
       margin-top: 6px;
     }
 
+    #filters-wrap {
+      padding: 12px;
+      border-bottom: 1px solid #2a2a4e;
+    }
+
+    #filters-wrap h3 {
+      font-size: 11px;
+      color: #64748b;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 600;
+    }
+
+    .filter-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 4px;
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 12px;
+      transition: background 0.15s;
+    }
+
+    .filter-item:hover {
+      background: #2a2a4e;
+    }
+
+    .filter-item.dimmed {
+      opacity: 0.3;
+    }
+
+    .filter-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .filter-label {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: #cbd5e1;
+    }
+
+    .filter-count {
+      color: #475569;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
     #legend-wrap {
       flex: 1;
       overflow-y: auto;
@@ -333,6 +387,19 @@
       <h3>Node Info</h3>
       <div id="info-content"><span class="empty">Click a node to inspect</span></div>
     </div>
+    <div id="filters-wrap">
+      <h3>Filters</h3>
+      <div class="filter-item" id="toggle-deps">
+        <span class="filter-dot" style="background:#2d6a4f"></span>
+        <span class="filter-label">Dependencies</span>
+        <span class="filter-count" id="dep-count">0</span>
+      </div>
+      <div class="filter-item" id="toggle-entities">
+        <span class="filter-dot" style="background:#6a2d6a"></span>
+        <span class="filter-label">Entities</span>
+        <span class="filter-count" id="entity-count">0</span>
+      </div>
+    </div>
     <div id="legend-wrap">
       <h3>Modules</h3>
       <div id="legend"></div>
@@ -396,6 +463,7 @@
           _community: a.community || 'other',
           _language: a.language || '',
           _degree: deg,
+          _npm: a.npm === true,
         };
       });
 
@@ -554,13 +622,10 @@
       const legendEl = document.getElementById('legend');
       const hiddenCommunities = new Set();
 
-      const sortedKeys = [...communityMap.keys()].sort((a, b) => {
-        if (a === 'entities') return 1;
-        if (b === 'entities') return -1;
-        if (a === 'dependencies') return 1;
-        if (b === 'dependencies') return -1;
-        return a.localeCompare(b);
-      });
+      const keysToSkip = new Set(['dependencies', 'entities']);
+      const sortedKeys = [...communityMap.keys()]
+        .filter(k => !keysToSkip.has(k))
+        .sort((a, b) => a.localeCompare(b));
 
       sortedKeys.forEach(key => {
         const info = communityMap.get(key);
@@ -591,7 +656,27 @@
       document.getElementById('stats').textContent =
         fileCount + ' files \u00B7 ' + totalEntities + ' entities (' + classCount + ' classes, ' + funcCount + ' functions, ' + methodCount + ' methods) \u00B7 ' + rawEdges.length + ' edges \u00B7 ' + communityMap.size + ' modules';
 
-      // 14. Info panel
+      // 14. Filters — toggle dependencies and entities
+      const depNodeIds = rawNodes.filter(n => n._npm).map(n => n.id);
+      const entityNodeIds = rawNodes.filter(n => ['entity', 'class', 'function', 'method'].includes(n._kind)).map(n => n.id);
+      document.getElementById('dep-count').textContent = depNodeIds.length;
+      document.getElementById('entity-count').textContent = entityNodeIds.length;
+
+      const hiddenFilters = {};
+      document.getElementById('toggle-deps').onclick = function () {
+        const isHidden = hiddenFilters.deps;
+        hiddenFilters.deps = !isHidden;
+        this.classList.toggle('dimmed');
+        nodesDS.update(depNodeIds.map(id => ({ id, hidden: !isHidden })));
+      };
+      document.getElementById('toggle-entities').onclick = function () {
+        const isHidden = hiddenFilters.entities;
+        hiddenFilters.entities = !isHidden;
+        this.classList.toggle('dimmed');
+        nodesDS.update(entityNodeIds.map(id => ({ id, hidden: !isHidden })));
+      };
+
+      // 15. Info panel
       function showInfo(nodeId) {
         const n = nodesDS.get(nodeId);
         if (!n) return;
