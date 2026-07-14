@@ -128,3 +128,32 @@ test('backslash relative paths do not become external packages', () => {
   });
   assert.equal(externals.length, 0);
 });
+
+test('creates entity nodes for methods', () => {
+  const data = [{
+    id: '/root/src/pool.js',
+    dependencies: [],
+    entities: { classes: ['WorkerPool'], functions: [], methods: ['run', '#drain', 'terminate'], docstrings: [] },
+  }];
+  const graph = buildGraph(data);
+  assert(graph.hasNode('/root/src/pool.js::run'));
+  assert(graph.hasNode('/root/src/pool.js::#drain'));
+  assert(graph.hasNode('/root/src/pool.js::terminate'));
+  assert.equal(graph.getNodeAttributes('/root/src/pool.js::run').kind, 'method');
+  assert.equal(graph.getNodeAttributes('/root/src/pool.js::#drain').kind, 'method');
+});
+
+test('deduplicates method names', () => {
+  const data = [{
+    id: '/root/src/pool.js',
+    dependencies: [],
+    entities: { classes: [], functions: [], methods: ['run', 'run'], docstrings: [] },
+  }];
+  const graph = buildGraph(data);
+  let count = 0;
+  graph.forEachNode((node) => {
+    if (node.endsWith('::run')) count++;
+  });
+  assert.equal(count, 1);
+});
+
