@@ -8,7 +8,8 @@ const PALETTE = [
   '#AF7AA1', '#86BCB6',
 ];
 
-const EXTERNAL_COLOR = '#64748B';
+const EXTERNAL_COLOR = '#2d6a4f';
+const ENTITY_COLOR = '#6a2d6a';
 const ENTITY_KINDS = new Set(['entity', 'class', 'function', 'method']);
 
 const LANGUAGE_MAP = {
@@ -169,7 +170,7 @@ export function enrichNodes(graph) {
       setAttrs(graph, node, {
         size: 3,
         community: parentInfo ? parentInfo.community : 'other',
-        color: parentInfo ? parentInfo.color : '#94a3b8',
+        color: ENTITY_COLOR,
       });
       return;
     }

@@ -1,8 +1,10 @@
 import Graph from 'graphology';
 import path from 'node:path';
+import fs from 'node:fs';
 import { enrichNodes } from './enricher.js';
 
 export function buildGraph(parsedData) {
+  const pkgDeps = loadPackageDeps();
   // Initialize a directed graph 
   const graph = new Graph({ multi: true, directed: true });
 
@@ -75,7 +77,7 @@ export function buildGraph(parsedData) {
         graph.addEdge(data.id, target, { relationship: 'imports' });
       } else if (!isRelative(dep)) {
         // External package or Node built-in
-        graph.mergeNode(dep, { external: true, label: dep });
+        graph.mergeNode(dep, { external: true, label: dep, npm: pkgDeps.has(dep) });
         graph.addEdge(data.id, dep, { relationship: 'imports' });
       }
     }
@@ -85,4 +87,15 @@ export function buildGraph(parsedData) {
   enrichNodes(graph);
 
   return graph;
+}
+
+function loadPackageDeps() {
+  try {
+    const raw = fs.readFileSync(path.join(process.cwd(), 'package.json'), 'utf-8');
+    const pkg = JSON.parse(raw);
+    const all = { ...pkg.dependencies, ...pkg.devDependencies };
+    return new Set(Object.keys(all));
+  } catch {
+    return new Set();
+  }
 }
