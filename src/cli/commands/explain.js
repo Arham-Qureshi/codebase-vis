@@ -145,6 +145,15 @@ async function resolveCredentials(options = {}) {
   return { apiKey, model };
 }
 
+function resolveConcurrency(raw) {
+  const val = raw ? Number(raw) : 2;
+  if (val > 5) {
+    p.log.warn(pc.yellow(`--concurrency capped to 5 (requested: ${val}). Maximum allowed is 5.`));
+    return 5;
+  }
+  return val;
+}
+
 function clusterGraph(graph) {
   // Communities are pre-calculated by the enricher during `generate`.
   // We just group file nodes by their existing community attribute.
@@ -290,7 +299,7 @@ export async function explainCommand(options) {
     const s = p.spinner();
     s.start(`Retrying ${retryData.length} failed clusters...`);
 
-    const concurrency = options.concurrency ? Number(options.concurrency) : 2;
+    const concurrency = resolveConcurrency(options.concurrency);
     const rpm = options.rpm ? Number(options.rpm) : 30;
     const bucket = new TokenBucket(rpm);
 
@@ -368,7 +377,7 @@ export async function explainCommand(options) {
     return;
   }
 
-  const concurrency = options.concurrency ? Number(options.concurrency) : 2;
+  const concurrency = resolveConcurrency(options.concurrency);
   const rpm = options.rpm ? Number(options.rpm) : 30;
   const bucket = new TokenBucket(rpm);
 
