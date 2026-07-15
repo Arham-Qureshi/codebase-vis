@@ -54,10 +54,12 @@ export function extractEntities(astRoot) {
     const methodCaptures = methodQuery.captures(astRoot);
     const methods = methodCaptures.map(c => c.node.text);
 
-    // Exclude class methods from top-level functions to avoid double-counting
-    const methodSet = new Set(methods);
+    // Exclude method nodes from functions by AST position, not by name
+    const methodKeys = new Set(
+      methodCaptures.map(c => `${c.node.startIndex}-${c.node.endIndex}`)
+    );
     const functions = captures
-      .filter(c => c.name === 'func_name' && !methodSet.has(c.node.text))
+      .filter(c => c.name === 'func_name' && !methodKeys.has(`${c.node.startIndex}-${c.node.endIndex}`))
       .map(c => c.node.text);
 
     const docQuery = new Parser.Query(grammar, DOCSTRING_QUERY);
