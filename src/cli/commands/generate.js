@@ -61,9 +61,15 @@ const NON_CODE_PATTERNS = [
 const STACK_IGNORES = {
   node: ['node_modules', 'dist', 'build', '.next'],
   nextjs: ['node_modules', 'dist', 'build', '.next'],
+  angular: ['node_modules', 'dist', 'build'],
   react: ['node_modules', 'dist', 'build'],
   python: ['venv', '__pycache__', '.pytest_cache', '*.pyc', 'dist', 'build'],
   cpp: ['build', 'cmake-build-*', '.vscode'],
+  rust: ['target'],
+  go: [],
+  php: ['vendor'],
+  ruby: ['vendor/bundle'],
+  java: ['build', '.gradle'],
 };
 
 async function readAgentignore(rootDir) {
@@ -113,11 +119,16 @@ export async function generateCommand(paths = [], options = {}) {
 
   s.start('Discovering files...');
   const files = [];
+  let ignoredCount = 0;
   for (const dir of targetDirs) {
-    const found = await discoverFiles(dir, ig);
-    files.push(...found);
+    const result = await discoverFiles(dir, ig);
+    files.push(...result.files);
+    ignoredCount += result.ignoredCount;
   }
-  s.stop(pc.green(`Found ${pc.bold(files.length)} files`));
+
+  let detail = `${pc.bold(files.length)} files`;
+  if (ignoredCount > 0) detail += `, ${pc.dim(ignoredCount + ' ignored')}`;
+  s.stop(pc.green(`Found ${detail}`));
 
   s.start('Checking file cache...');
   const cache = await loadCache(outDir);
@@ -140,6 +151,14 @@ export async function generateCommand(paths = [], options = {}) {
     for (const r of cachedResults) {
       if (r && !r.error) allParsed.push(r);
     }
+
+    if (options.verbose && cachedResults.length > 0) {
+      for (const r of cachedResults) {
+        if (r && r.id) {
+          p.log.message(pc.dim(`  [cached] ${path.relative(process.cwd(), r.id)}`));
+        }
+      }
+    }
   }
 
   let freshResults = [];
@@ -156,6 +175,14 @@ export async function generateCommand(paths = [], options = {}) {
         parseErrors.push(result?.id || 'unknown');
       }
     }
+
+    if (options.verbose && freshResults.length > 0) {
+      for (const result of freshResults) {
+        if (result && result.id && !result.error) {
+          p.log.message(pc.dim(`  [parsed] ${path.relative(process.cwd(), result.id)}`));
+        }
+      }
+    }
   }
 
   if (cache) {
@@ -165,7 +192,8 @@ export async function generateCommand(paths = [], options = {}) {
   }
 
   if (parseErrors.length > 0) {
-    p.log.warn(pc.yellow(`${parseErrors.length} file(s) failed to parse. Use --verbose to see details.`));
+    const hint = options.verbose ? '' : ' Use --verbose to see details.';
+    p.log.warn(pc.yellow(`${parseErrors.length} file(s) failed to parse.${hint}`));
   }
   if (options.verbose && parseErrors.length > 0) {
     for (const file of parseErrors) {
