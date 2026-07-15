@@ -7,6 +7,7 @@ const DIR_CONCURRENCY = 32;
 export async function discoverFiles(targetDir, ig) {
   const results = [];
   const root = path.resolve(targetDir);
+  let ignoredCount = 0;
 
   async function walk(dir) {
     const entries = await fs.readdir(dir);
@@ -27,7 +28,10 @@ export async function discoverFiles(targetDir, ig) {
 
       const relPath = relDir === '.' ? item.name : path.join(relDir, item.name);
 
-      if (ig.ignores(relPath)) continue;
+      if (ig.ignores(relPath)) {
+        ignoredCount++;
+        continue;
+      }
 
       const fullPath = path.join(dir, item.name);
       if (item.stats.isDirectory()) {
@@ -44,5 +48,5 @@ export async function discoverFiles(targetDir, ig) {
   }
 
   await walk(root);
-  return results;
+  return { files: results, ignoredCount };
 }

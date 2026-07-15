@@ -18,6 +18,7 @@ export async function detectTechStack(rootDir) {
     const allDeps = [...deps, ...devDeps];
 
     if (allDeps.includes('next')) return { type: 'nextjs' };
+    if (allDeps.includes('@angular/core')) return { type: 'angular' };
     if (allDeps.includes('react')) return { type: 'react' };
 
     return { type: 'node' };
@@ -51,6 +52,42 @@ export async function detectTechStack(rootDir) {
   try {
     await fs.access(makefilePath);
     return { type: 'cpp' };
+  } catch {
+  }
+
+  try {
+    await fs.access(path.join(rootDir, 'Cargo.toml'));
+    return { type: 'rust' };
+  } catch {
+  }
+
+  try {
+    await fs.access(path.join(rootDir, 'go.mod'));
+    return { type: 'go' };
+  } catch {
+  }
+
+  try {
+    await fs.access(path.join(rootDir, 'composer.json'));
+    return { type: 'php' };
+  } catch {
+  }
+
+  try {
+    await fs.access(path.join(rootDir, 'Gemfile'));
+    return { type: 'ruby' };
+  } catch {
+  }
+
+  try {
+    await fs.access(path.join(rootDir, 'build.gradle'));
+    return { type: 'java' };
+  } catch {
+  }
+
+  try {
+    await fs.access(path.join(rootDir, 'pom.xml'));
+    return { type: 'java' };
   } catch {
   }
 

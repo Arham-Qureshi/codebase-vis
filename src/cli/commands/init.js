@@ -40,9 +40,15 @@ const NON_CODE_PATTERNS = [
 const STACK_IGNORES = {
   node: ['node_modules/', 'dist/', 'build/', '.next/'],
   nextjs: ['node_modules/', 'dist/', 'build/', '.next/'],
+  angular: ['node_modules/', 'dist/', 'build/'],
   react: ['node_modules/', 'dist/', 'build/'],
   python: ['venv/', '__pycache__/', '.pytest_cache/', '*.pyc', 'dist/', 'build/'],
   cpp: ['build/', 'cmake-build-*/', '.vscode/'],
+  rust: ['target/'],
+  go: [],
+  php: ['vendor/'],
+  ruby: ['vendor/bundle/'],
+  java: ['build/', '.gradle/'],
 };
 
 function getStackIgnores(stackType) {
@@ -125,6 +131,10 @@ export async function initCommand() {
   await fs.writeFile(agentignorePath, content, 'utf-8');
 
   s.stop(pc.green('.agentignore created successfully'));
-  p.log.info(pc.dim('NOTE: Review the file and remove any patterns for files that are not source code (e.g., docs, configs, assets) to reduce parsing overhead.'));
+  p.log.warn(
+    pc.bgYellow(pc.black(' NOTE: ')) +
+    ' ' +
+    pc.yellow('Review the file and remove any patterns for files that are not source code (e.g., docs, configs, assets) to reduce parsing overhead.')
+  );
   p.outro(pc.dim('Edit the file to customise, then run ') + pc.cyan('codebase-vis generate'));
 }
