@@ -10,7 +10,12 @@ export async function discoverFiles(targetDir, ig) {
   let ignoredCount = 0;
 
   async function walk(dir) {
-    const entries = await fs.readdir(dir);
+    let entries;
+    try {
+      entries = await fs.readdir(dir);
+    } catch {
+      return;
+    }
     const relDir = path.relative(root, dir) || '.';
 
     const stats = await Promise.all(
