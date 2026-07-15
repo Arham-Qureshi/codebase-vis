@@ -1,6 +1,6 @@
 {
   "name": "codebase-vis",
-  "version": "1.3.10",
+  "version": "1.3.11",
   "description": "A local CLI tool that parses codebases, builds dependency graphs, and outputs interactive architecture visualizations.",
   "type": "module",
   "main": "./bin/codebase-vis.js",
