@@ -7,19 +7,25 @@ import { grammar as pyGrammar, extractDependencies as pyExtractDeps, extractEnti
 import { grammar as cppGrammar, extractDependencies as cppExtractDeps, extractEntities as cppExtractEnts } from './cpp.js';
 import { grammar as htmlGrammar, extractDependencies as htmlExtractDeps, extractEntities as htmlExtractEnts } from './html.js';
 import { grammar as cssGrammar, extractDependencies as cssExtractDeps, extractEntities as cssExtractEnts } from './css.js';
+import { grammar as rustGrammar, extractDependencies as rustExtractDeps, extractEntities as rustExtractEnts } from './rust.js';
+import { grammar as goGrammar, extractDependencies as goExtractDeps, extractEntities as goExtractEnts } from './go.js';
+import { grammar as javaGrammar, extractDependencies as javaExtractDeps, extractEntities as javaExtractEnts } from './java.js';
 
 // maps extensions to their grammar and extraction functions
 const GRAMMAR_MAP = {
-  '.js':  { grammar: jsGrammar,  extractDeps: jsExtractDeps, extractEnts: jsExtractEnts },
-  '.jsx': { grammar: jsGrammar,  extractDeps: jsExtractDeps, extractEnts: jsExtractEnts },
-  '.ts':  { grammar: tsGrammar,  extractDeps: tsExtractDeps, extractEnts: tsExtractEnts },
+  '.js': { grammar: jsGrammar, extractDeps: jsExtractDeps, extractEnts: jsExtractEnts },
+  '.jsx': { grammar: jsGrammar, extractDeps: jsExtractDeps, extractEnts: jsExtractEnts },
+  '.ts': { grammar: tsGrammar, extractDeps: tsExtractDeps, extractEnts: tsExtractEnts },
   '.tsx': { grammar: tsxGrammar, extractDeps: tsExtractDeps, extractEnts: tsExtractEnts },
-  '.py':  { grammar: pyGrammar,  extractDeps: pyExtractDeps, extractEnts: pyExtractEnts },
+  '.py': { grammar: pyGrammar, extractDeps: pyExtractDeps, extractEnts: pyExtractEnts },
   '.cpp': { grammar: cppGrammar, extractDeps: cppExtractDeps, extractEnts: cppExtractEnts },
-  '.h':   { grammar: cppGrammar, extractDeps: cppExtractDeps, extractEnts: cppExtractEnts },
-  '.hpp':  { grammar: cppGrammar,  extractDeps: cppExtractDeps,  extractEnts: cppExtractEnts },
+  '.h': { grammar: cppGrammar, extractDeps: cppExtractDeps, extractEnts: cppExtractEnts },
+  '.hpp': { grammar: cppGrammar, extractDeps: cppExtractDeps, extractEnts: cppExtractEnts },
   '.html': { grammar: htmlGrammar, extractDeps: htmlExtractDeps, extractEnts: htmlExtractEnts },
-  '.css':  { grammar: cssGrammar,  extractDeps: cssExtractDeps,  extractEnts: cssExtractEnts },
+  '.css': { grammar: cssGrammar, extractDeps: cssExtractDeps, extractEnts: cssExtractEnts },
+  '.rs': { grammar: rustGrammar, extractDeps: rustExtractDeps, extractEnts: rustExtractEnts },
+  '.go': { grammar: goGrammar, extractDeps: goExtractDeps, extractEnts: goExtractEnts },
+  '.java': { grammar: javaGrammar, extractDeps: javaExtractDeps, extractEnts: javaExtractEnts },
 };
 
 // reads a file, parses its AST, and returns a normalized object
