@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { EXT_TO_LANGUAGE } from '../parser/languages.js';
 
 const PALETTE = [
   '#4E79A7', '#F28E2B', '#E15759', '#76B7B2', '#59A14F',
@@ -7,15 +8,6 @@ const PALETTE = [
 ];
 
 const EXTERNAL_COLOR = '#64748B';
-
-const LANGUAGE_MAP = {
-  '.js': 'JavaScript', '.jsx': 'JavaScript',
-  '.ts': 'TypeScript', '.tsx': 'TypeScript',
-  '.py': 'Python',
-  '.cpp': 'C++', '.h': 'C++', '.hpp': 'C++',
-  '.html': 'HTML',
-  '.css': 'CSS',
-};
 
 function setAttrs(graph, node, attrs) {
   for (const [key, value] of Object.entries(attrs)) {
@@ -80,7 +72,7 @@ export function enrichNodes(graph) {
     setAttrs(graph, node, {
       community: info.label,
       color: info.color,
-      language: LANGUAGE_MAP[ext] || 'Unknown',
+      language: EXT_TO_LANGUAGE[ext] || 'Unknown',
     });
   });
 }
