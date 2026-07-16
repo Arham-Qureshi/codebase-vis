@@ -1,30 +1,14 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { KNOWN_EXTENSIONS, ALL_IGNORES } from '../parser/languages.js';
 
-const BASELINE_IGNORES = new Set([
-  'node_modules',
-  'dist',
-  'build',
-  '.git',
-  '.next',
-  'coverage',
-  '.agent',
-  'codebase-out',
-]);
-
-const ALLOWED_EXTENSIONS = new Set([
-  '.js', '.jsx', '.ts', '.tsx',
-  '.py',
-  '.cpp', '.h', '.hpp',
-  '.html', '.css',
-]);
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024;
 
 // using recursive search
 export async function discoverFiles(targetDir, customIgnores = []) {
-  // merge hardcoded + custom ignores into a single set for O(1) lookup
-  const ignoreSet = new Set([...BASELINE_IGNORES, ...customIgnores]);
+  // merge registry ignores + custom ignores into a single set for O(1) lookup
+  const ignoreSet = new Set([...ALL_IGNORES, ...customIgnores]);
   const results = [];
 
   async function walk(dir) {
@@ -46,7 +30,7 @@ export async function discoverFiles(targetDir, customIgnores = []) {
         if (stats.size > MAX_FILE_SIZE) continue;
 
         const ext = path.extname(entry).toLowerCase();
-        if (!ALLOWED_EXTENSIONS.has(ext)) continue;
+        if (!KNOWN_EXTENSIONS.has(ext)) continue;
 
         results.push(path.resolve(fullPath));
       }
