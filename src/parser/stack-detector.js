@@ -1,24 +1,76 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { STACK_MARKERS } from './languages.js';
 
-// reads package.json and categorises the project
-export async function detectTechStack(rootDir) {
-  const pkgPath = path.join(rootDir, 'package.json');
+const fileCache = new Map();
+
+async function readMarkerFile(rootDir, filename) {
+  const key = path.join(rootDir, filename);
+  if (fileCache.has(key)) return fileCache.get(key);
 
   try {
-    const raw = await fs.readFile(pkgPath, 'utf8');
-    const pkg = JSON.parse(raw);
-
-    const deps = Object.keys(pkg.dependencies || {});
-    const devDeps = Object.keys(pkg.devDependencies || {});
-    const allDeps = [...deps, ...devDeps];
-
-    if (allDeps.includes('next')) return { type: 'nextjs' };
-    if (allDeps.includes('react')) return { type: 'react' };
-
-    return { type: 'node' };
+    const content = await fs.readFile(key, 'utf8');
+    fileCache.set(key, content);
+    return content;
   } catch {
-    // package.json missing 
-    return { type: 'node', dependencies: [] };
+    fileCache.set(key, null);
+    return null;
   }
+}
+
+function hasDependencyInPackageJson(raw, dep) {
+  try {
+    const pkg = JSON.parse(raw);
+    const allDeps = {
+      ...pkg.dependencies,
+      ...pkg.devDependencies,
+    };
+    return dep in allDeps;
+  } catch {
+    return false;
+  }
+}
+
+function hasDependencyInRequirements(raw, dep) {
+  const lines = raw.split('\n');
+  const depLower = dep.toLowerCase();
+  return lines.some((line) => {
+    const trimmed = line.trim().toLowerCase();
+    if (!trimmed || trimmed.startsWith('#')) return false;
+    // extract package name before any version specifier
+    const pkgName = trimmed.split(/[=<>!~[\s]/)[0];
+    return pkgName === depLower;
+  });
+}
+
+export async function detectTechStack(rootDir) {
+  // clear cache for each detection run
+  fileCache.clear();
+
+  for (const entry of STACK_MARKERS) {
+    const content = await readMarkerFile(rootDir, entry.marker);
+
+    if (content === null) continue;
+
+    if (!entry.dep) {
+      return { type: entry.type };
+    }
+
+    // dep check: dispatch based on marker file type
+    const filename = entry.marker;
+    let found = false;
+
+    if (filename === 'package.json') {
+      found = hasDependencyInPackageJson(content, entry.dep);
+    } else if (filename === 'requirements.txt') {
+      found = hasDependencyInRequirements(content, entry.dep);
+    }
+
+    if (found) {
+      return { type: entry.type };
+    }
+  }
+
+  // nothing matched
+  return { type: 'unknown' };
 }
