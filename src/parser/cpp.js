@@ -14,6 +14,29 @@ const ENTITY_QUERY = `
 (namespace_definition name: (namespace_identifier) @ns_name)
 `;
 
+// capturing class methods: inline definitions + out-of-class definitions (Class::method)
+const METHOD_QUERY = `
+(class_specifier
+  body: (field_declaration_list
+    (function_definition
+      declarator: (function_declarator
+        declarator: (field_identifier) @method_name))))
+(class_specifier
+  body: (field_declaration_list
+    (function_definition
+      declarator: (function_declarator
+        declarator: (identifier) @method_name))))
+(function_definition
+  declarator: (function_declarator
+    declarator: (qualified_identifier
+      name: (identifier) @method_name)))
+`;
+
+// capturing C++ block comments (/** ... */ or /* ... */)
+const DOCSTRING_QUERY = `
+(comment) @doc
+`;
+
 export function extractDependencies(astRoot) {
   try {
     const query = new Parser.Query(grammar, DEPENDENCY_QUERY);
@@ -26,13 +49,29 @@ export function extractDependencies(astRoot) {
   }
 }
 
+// extracts structured entities: { classes, functions, methods, docstrings }
 export function extractEntities(astRoot) {
   try {
     const query = new Parser.Query(grammar, ENTITY_QUERY);
     const captures = query.captures(astRoot);
 
-    return captures.map(c => c.node.text);
+    const classes = captures.filter(c => c.name === 'class_name').map(c => c.node.text);
+    const functions = captures
+      .filter(c => c.name === 'func_name' || c.name === 'ns_name')
+      .map(c => c.node.text);
+
+    const methodQuery = new Parser.Query(grammar, METHOD_QUERY);
+    const methodCaptures = methodQuery.captures(astRoot);
+    const methods = methodCaptures.map(c => c.node.text);
+
+    const docQuery = new Parser.Query(grammar, DOCSTRING_QUERY);
+    const docCaptures = docQuery.captures(astRoot);
+    const docstrings = docCaptures
+      .map(c => c.node.text)
+      .filter(t => t.startsWith('/**') || t.startsWith('/*') || t.startsWith('//'));
+
+    return { classes, functions, methods, docstrings };
   } catch {
-    return [];
+    return { classes: [], functions: [], methods: [], docstrings: [] };
   }
 }

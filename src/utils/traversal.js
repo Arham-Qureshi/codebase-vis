@@ -4,39 +4,62 @@ import { KNOWN_EXTENSIONS, ALL_IGNORES } from '../parser/languages.js';
 
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024;
+const DIR_CONCURRENCY = 32;
 
 // using recursive search
 export async function discoverFiles(targetDir, customIgnores = []) {
   // merge registry ignores + custom ignores into a single set for O(1) lookup
   const ignoreSet = new Set([...ALL_IGNORES, ...customIgnores]);
+export async function discoverFiles(targetDir, ig) {
   const results = [];
+  const root = path.resolve(targetDir);
+  let ignoredCount = 0;
 
   async function walk(dir) {
-    const entries = await fs.readdir(dir);
+    let entries;
+    try {
+      entries = await fs.readdir(dir);
+    } catch {
+      return;
+    }
+    const relDir = path.relative(root, dir) || '.';
 
-    for (const entry of entries) {
-      if (ignoreSet.has(entry)) continue;
+    const stats = await Promise.all(
+      entries.map(e =>
+        fs.lstat(path.join(dir, e))
+          .then(s => ({ name: e, stats: s }))
+          .catch(() => null)
+      )
+    );
 
-      const fullPath = path.join(dir, entry);
+    const dirPromises = [];
 
-      // not stat so we don't follow symlinks
-      const stats = await fs.lstat(fullPath);
+    for (const item of stats) {
+      if (!item || item.stats.isSymbolicLink()) continue;
 
-      if (stats.isSymbolicLink()) continue;
-
-      if (stats.isDirectory()) {
-        await walk(fullPath);
-      } else if (stats.isFile()) {
-        if (stats.size > MAX_FILE_SIZE) continue;
+      const relPath = relDir === '.' ? item.name : path.join(relDir, item.name);
 
         const ext = path.extname(entry).toLowerCase();
         if (!KNOWN_EXTENSIONS.has(ext)) continue;
+      if (ig.ignores(relPath)) {
+        ignoredCount++;
+        continue;
+      }
 
+      const fullPath = path.join(dir, item.name);
+      if (item.stats.isDirectory()) {
+        dirPromises.push(walk(fullPath));
+      } else if (item.stats.isFile()) {
+        if (item.stats.size > MAX_FILE_SIZE) continue;
         results.push(path.resolve(fullPath));
       }
     }
+
+    for (let i = 0; i < dirPromises.length; i += DIR_CONCURRENCY) {
+      await Promise.all(dirPromises.slice(i, i + DIR_CONCURRENCY));
+    }
   }
 
-  await walk(path.resolve(targetDir));
-  return results;
+  await walk(root);
+  return { files: results, ignoredCount };
 }

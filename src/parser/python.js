@@ -15,6 +15,22 @@ const ENTITY_QUERY = `
 (function_definition name: (identifier) @func_name)
 `;
 
+// capturing class methods (regular and decorated like @property)
+const METHOD_QUERY = `
+(class_definition
+  body: (block
+    (function_definition name: (identifier) @method_name)))
+(class_definition
+  body: (block
+    (decorated_definition
+      definition: (function_definition name: (identifier) @method_name))))
+`;
+
+// Python docstrings: string literals as standalone expressions (triple-quoted)
+const DOCSTRING_QUERY = `
+(expression_statement (string) @doc)
+`;
+
 export function extractDependencies(astRoot) {
   try {
     const query = new Parser.Query(grammar, DEPENDENCY_QUERY);
@@ -26,13 +42,32 @@ export function extractDependencies(astRoot) {
   }
 }
 
+// extracts structured entities: { classes, functions, methods, docstrings }
 export function extractEntities(astRoot) {
   try {
     const query = new Parser.Query(grammar, ENTITY_QUERY);
     const captures = query.captures(astRoot);
 
-    return captures.map(c => c.node.text);
+    const classes = captures.filter(c => c.name === 'class_name').map(c => c.node.text);
+
+    const methodQuery = new Parser.Query(grammar, METHOD_QUERY);
+    const methodCaptures = methodQuery.captures(astRoot);
+    const methods = methodCaptures.map(c => c.node.text);
+
+    // Exclude method nodes from functions by AST position, not by name
+    const methodKeys = new Set(
+      methodCaptures.map(c => `${c.node.startIndex}-${c.node.endIndex}`)
+    );
+    const functions = captures
+      .filter(c => c.name === 'func_name' && !methodKeys.has(`${c.node.startIndex}-${c.node.endIndex}`))
+      .map(c => c.node.text);
+
+    const docQuery = new Parser.Query(grammar, DOCSTRING_QUERY);
+    const docCaptures = docQuery.captures(astRoot);
+    const docstrings = docCaptures.map(c => c.node.text);
+
+    return { classes, functions, methods, docstrings };
   } catch {
-    return [];
+    return { classes: [], functions: [], methods: [], docstrings: [] };
   }
 }

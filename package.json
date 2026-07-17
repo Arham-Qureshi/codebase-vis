@@ -1,37 +1,59 @@
 {
-  "name": "agent-context",
-  "version": "1.0.0",
-  "description": "A local, zero-dependency CLI tool that parses codebases, builds dependency graphs, and outputs interactive architecture visualizations.",
+  "name": "codebase-vis",
+  "version": "1.4.0",
+  "description": "A local CLI tool that parses codebases, builds dependency graphs, and outputs interactive architecture visualizations.",
   "type": "module",
-  "main": "index.js",
+  "main": "./bin/codebase-vis.js",
   "bin": {
-    "agent-context": "./bin/agent-context.js"
+    "codebase-vis": "bin/codebase-vis.js"
   },
+  "files": [
+    "bin/",
+    "src/",
+    "LICENSE"
+  ],
   "directories": {
     "doc": "docs"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Arham-Qureshi/agent-context.git"
+    "url": "git+https://github.com/Arham-Qureshi/codebase-vis.git"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "codebase",
+    "dependency-graph",
+    "ast",
+    "visualization",
+    "cli",
+    "architecture",
+    "static-analysis"
+  ],
+  "author": "Arham_Q",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/Arham-Qureshi/agent-context/issues"
+    "url": "https://github.com/Arham-Qureshi/codebase-vis/issues"
   },
-  "homepage": "https://github.com/Arham-Qureshi/agent-context#readme",
+  "homepage": "https://github.com/Arham-Qureshi/codebase-vis#readme",
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
     "@clack/core": "^0.4.1",
     "@clack/prompts": "^0.8.2",
     "commander": "^15.0.0",
     "graphology": "^0.26.0",
+    "graphology-communities-louvain": "^2.0.2",
+    "ignore": "^7.0.6",
     "picocolors": "^1.1.1",
     "tree-sitter": "^0.21.1",
+    "tree-sitter-cpp": "^0.21.0",
+    "tree-sitter-css": "^0.21.1",
+    "tree-sitter-html": "^0.20.4",
     "tree-sitter-javascript": "^0.21.4",
+    "tree-sitter-python": "^0.21.0",
     "tree-sitter-typescript": "^0.21.2"
   }
 }
