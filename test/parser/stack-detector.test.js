@@ -49,12 +49,12 @@ test('detects react from package.json with react', async () => {
   assert.equal(result.type, 'react');
 });
 
-test('detects node from package.json with no framework', async () => {
+test('detects express from package.json with express dependency', async () => {
   const { detectTechStack } = await import('../../src/parser/stack-detector.js');
   const dir = await testDir();
   await writeConfig(dir, 'package.json', JSON.stringify({ dependencies: { express: '^4.0.0' } }));
   const result = await detectTechStack(dir);
-  assert.equal(result.type, 'node');
+  assert.equal(result.type, 'express');
 });
 
 test('detects python from pyproject.toml', async () => {
@@ -65,12 +65,12 @@ test('detects python from pyproject.toml', async () => {
   assert.equal(result.type, 'python');
 });
 
-test('detects python from requirements.txt', async () => {
+test('detects flask from requirements.txt with flask dependency', async () => {
   const { detectTechStack } = await import('../../src/parser/stack-detector.js');
   const dir = await testDir();
   await writeConfig(dir, 'requirements.txt', 'flask\n');
   const result = await detectTechStack(dir);
-  assert.equal(result.type, 'python');
+  assert.equal(result.type, 'flask');
 });
 
 test('detects python from setup.py', async () => {
@@ -169,4 +169,76 @@ test('priority: nextjs beats angular beats react beats node', async () => {
   }));
   const result = await detectTechStack(dir);
   assert.equal(result.type, 'nextjs');
+});
+
+test('detects vue from package.json with vue dependency', async () => {
+  const { detectTechStack } = await import('../../src/parser/stack-detector.js');
+  const dir = await testDir();
+  await writeConfig(dir, 'package.json', JSON.stringify({ dependencies: { vue: '^3.0.0' } }));
+  const result = await detectTechStack(dir);
+  assert.equal(result.type, 'vue');
+});
+
+test('detects svelte from package.json with svelte dependency', async () => {
+  const { detectTechStack } = await import('../../src/parser/stack-detector.js');
+  const dir = await testDir();
+  await writeConfig(dir, 'package.json', JSON.stringify({ dependencies: { svelte: '^3.0.0' } }));
+  const result = await detectTechStack(dir);
+  assert.equal(result.type, 'svelte');
+});
+
+test('detects fastify from package.json with fastify dependency', async () => {
+  const { detectTechStack } = await import('../../src/parser/stack-detector.js');
+  const dir = await testDir();
+  await writeConfig(dir, 'package.json', JSON.stringify({ dependencies: { fastify: '^4.0.0' } }));
+  const result = await detectTechStack(dir);
+  assert.equal(result.type, 'fastify');
+});
+
+test('detects hono from package.json with hono dependency', async () => {
+  const { detectTechStack } = await import('../../src/parser/stack-detector.js');
+  const dir = await testDir();
+  await writeConfig(dir, 'package.json', JSON.stringify({ dependencies: { hono: '^3.0.0' } }));
+  const result = await detectTechStack(dir);
+  assert.equal(result.type, 'hono');
+});
+
+test('detects django from requirements.txt with django dependency', async () => {
+  const { detectTechStack } = await import('../../src/parser/stack-detector.js');
+  const dir = await testDir();
+  await writeConfig(dir, 'requirements.txt', 'django>=4.0\n');
+  const result = await detectTechStack(dir);
+  assert.equal(result.type, 'django');
+});
+
+test('detects fastapi from requirements.txt with fastapi dependency', async () => {
+  const { detectTechStack } = await import('../../src/parser/stack-detector.js');
+  const dir = await testDir();
+  await writeConfig(dir, 'requirements.txt', 'fastapi==0.95.0\n');
+  const result = await detectTechStack(dir);
+  assert.equal(result.type, 'fastapi');
+});
+
+test('detects node from package.json with unknown dependencies', async () => {
+  const { detectTechStack } = await import('../../src/parser/stack-detector.js');
+  const dir = await testDir();
+  await writeConfig(dir, 'package.json', JSON.stringify({ dependencies: { random: '^1.0.0' } }));
+  const result = await detectTechStack(dir);
+  assert.equal(result.type, 'node');
+});
+
+test('detects python from requirements.txt with non-framework dependency', async () => {
+  const { detectTechStack } = await import('../../src/parser/stack-detector.js');
+  const dir = await testDir();
+  await writeConfig(dir, 'requirements.txt', 'numpy==1.24.0\n');
+  const result = await detectTechStack(dir);
+  assert.equal(result.type, 'python');
+});
+
+test('detects java from build.gradle.kts', async () => {
+  const { detectTechStack } = await import('../../src/parser/stack-detector.js');
+  const dir = await testDir();
+  await writeConfig(dir, 'build.gradle.kts', "plugins { java }\n");
+  const result = await detectTechStack(dir);
+  assert.equal(result.type, 'java');
 });

@@ -49,20 +49,23 @@ export function extractDependencies(astRoot) {
   }
 }
 
-// extracts structured entities: { classes, functions, methods, docstrings }
 export function extractEntities(astRoot) {
   try {
     const query = new Parser.Query(grammar, ENTITY_QUERY);
     const captures = query.captures(astRoot);
 
     const classes = captures.filter(c => c.name === 'class_name').map(c => c.node.text);
-    const functions = captures
-      .filter(c => c.name === 'func_name' || c.name === 'ns_name')
-      .map(c => c.node.text);
 
     const methodQuery = new Parser.Query(grammar, METHOD_QUERY);
     const methodCaptures = methodQuery.captures(astRoot);
     const methods = methodCaptures.map(c => c.node.text);
+
+    const methodKeys = new Set(
+      methodCaptures.map(c => `${c.node.startIndex}-${c.node.endIndex}`)
+    );
+    const functions = captures
+      .filter(c => (c.name === 'func_name' || c.name === 'ns_name') && !methodKeys.has(`${c.node.startIndex}-${c.node.endIndex}`))
+      .map(c => c.node.text);
 
     const docQuery = new Parser.Query(grammar, DOCSTRING_QUERY);
     const docCaptures = docQuery.captures(astRoot);

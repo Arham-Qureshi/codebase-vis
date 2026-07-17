@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { KNOWN_EXTENSIONS } from '../parser/languages.js';
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024;
 const DIR_CONCURRENCY = 32;
@@ -43,6 +44,8 @@ export async function discoverFiles(targetDir, ig) {
         dirPromises.push(walk(fullPath));
       } else if (item.stats.isFile()) {
         if (item.stats.size > MAX_FILE_SIZE) continue;
+        const ext = path.extname(item.name).toLowerCase();
+        if (!KNOWN_EXTENSIONS.has(ext)) continue;
         results.push(path.resolve(fullPath));
       }
     }

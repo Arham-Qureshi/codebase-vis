@@ -9,6 +9,9 @@ import { grammar as pyGrammar, extractDependencies as pyExtractDeps, extractEnti
 import { grammar as cppGrammar, extractDependencies as cppExtractDeps, extractEntities as cppExtractEnts } from './cpp.js';
 import { grammar as htmlGrammar, extractDependencies as htmlExtractDeps, extractEntities as htmlExtractEnts } from './html.js';
 import { grammar as cssGrammar, extractDependencies as cssExtractDeps, extractEntities as cssExtractEnts } from './css.js';
+import { grammar as rustGrammar, extractDependencies as rustExtractDeps, extractEntities as rustExtractEnts } from './rust.js';
+import { grammar as goGrammar, extractDependencies as goExtractDeps, extractEntities as goExtractEnts } from './go.js';
+import { grammar as javaGrammar, extractDependencies as javaExtractDeps, extractEntities as javaExtractEnts } from './java.js';
 
 const GRAMMAR_MAP = {
   '.js': { grammar: jsGrammar, extractDeps: jsExtractDeps, extractEnts: jsExtractEnts },
@@ -21,6 +24,9 @@ const GRAMMAR_MAP = {
   '.hpp': { grammar: cppGrammar, extractDeps: cppExtractDeps, extractEnts: cppExtractEnts },
   '.html': { grammar: htmlGrammar, extractDeps: htmlExtractDeps, extractEnts: htmlExtractEnts },
   '.css': { grammar: cssGrammar, extractDeps: cssExtractDeps, extractEnts: cssExtractEnts },
+  '.rs': { grammar: rustGrammar, extractDeps: rustExtractDeps, extractEnts: rustExtractEnts },
+  '.go': { grammar: goGrammar, extractDeps: goExtractDeps, extractEnts: goExtractEnts },
+  '.java': { grammar: javaGrammar, extractDeps: javaExtractDeps, extractEnts: javaExtractEnts },
 };
 
 const parserCache = new Map();

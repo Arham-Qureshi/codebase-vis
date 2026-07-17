@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { EXT_TO_LANGUAGE } from '../parser/languages.js';
 import Graph from 'graphology';
 import louvain from 'graphology-communities-louvain';
 
@@ -11,15 +12,6 @@ const PALETTE = [
 const EXTERNAL_COLOR = '#2d6a4f';
 const ENTITY_COLOR = '#6a2d6a';
 const ENTITY_KINDS = new Set(['entity', 'class', 'function', 'method']);
-
-const LANGUAGE_MAP = {
-  '.js': 'JavaScript', '.jsx': 'JavaScript',
-  '.ts': 'TypeScript', '.tsx': 'TypeScript',
-  '.py': 'Python',
-  '.cpp': 'C++', '.h': 'C++', '.hpp': 'C++',
-  '.html': 'HTML',
-  '.css': 'CSS',
-};
 
 function setAttrs(graph, node, attrs) {
   for (const [key, value] of Object.entries(attrs)) {
@@ -182,15 +174,14 @@ export function enrichNodes(graph) {
       setAttrs(graph, node, {
         community: info.community,
         color: info.color,
-        language: LANGUAGE_MAP[ext] || 'Unknown',
+        language: EXT_TO_LANGUAGE[ext] || 'Unknown',
       });
     } else {
-      // Fallback for isolated nodes
       const relDir = path.relative(commonRoot, path.dirname(node)) || '.';
       setAttrs(graph, node, {
         community: relDir,
         color: '#94a3b8',
-        language: LANGUAGE_MAP[ext] || 'Unknown',
+        language: EXT_TO_LANGUAGE[ext] || 'Unknown',
       });
     }
   });

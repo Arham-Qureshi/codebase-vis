@@ -45,5 +45,5 @@ export function extractDependencies(astRoot) {
 }
 
 export function extractEntities() {
-  return { classes: [], functions: [], docstrings: [] };
+  return { classes: [], functions: [], methods: [], docstrings: [] };
 }

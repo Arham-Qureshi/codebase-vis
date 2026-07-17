@@ -35,5 +35,5 @@ test('extractDependencies returns empty for no deps', async () => {
 
 test('extractEntities returns empty object', async () => {
   const result = await parseCode('<html></html>');
-  assert.deepEqual(result.entities, { classes: [], functions: [], docstrings: [] });
+  assert.deepEqual(result.entities, { classes: [], functions: [], methods: [], docstrings: [] });
 });
