@@ -4,7 +4,7 @@ import Parser from 'tree-sitter';
 export const grammar = Go;
 
 const DEPENDENCY_QUERY = `
-(import_spec path: (string_literal) @import_path)
+(import_spec path: (interpreted_string_literal) @import_path)
 `;
 
 const ENTITY_QUERY = `
