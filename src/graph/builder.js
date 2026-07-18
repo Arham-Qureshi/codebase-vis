@@ -26,14 +26,18 @@ export function buildGraph(parsedData) {
     if (entities && !Array.isArray(entities)) {
       for (const cls of [...new Set(entities.classes || [])]) {
         const entityId = `${data.id}::${cls}`;
-        graph.addNode(entityId, { label: cls, kind: 'class' });
-        graph.addEdge(data.id, entityId, { relation: 'contains' });
+        if (!graph.hasNode(entityId)) {
+          graph.addNode(entityId, { label: cls, kind: 'class' });
+          graph.addEdge(data.id, entityId, { relation: 'contains' });
+        }
       }
 
       for (const fn of [...new Set(entities.functions || [])]) {
         const entityId = `${data.id}::${fn}`;
-        graph.addNode(entityId, { label: fn, kind: 'function' });
-        graph.addEdge(data.id, entityId, { relation: 'contains' });
+        if (!graph.hasNode(entityId)) {
+          graph.addNode(entityId, { label: fn, kind: 'function' });
+          graph.addEdge(data.id, entityId, { relation: 'contains' });
+        }
       }
 
       for (const method of [...new Set(entities.methods || [])]) {
