@@ -349,6 +349,69 @@
     ::-webkit-scrollbar-thumb:hover {
       background: #475569;
     }
+
+    #minimap-wrap {
+      position: fixed;
+      bottom: 16px;
+      left: 16px;
+      width: 200px;
+      height: 140px;
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 8px;
+      background: rgba(12, 12, 12, 0.55);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      overflow: hidden;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+      z-index: 15;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+
+    #minimap-wrap.minimap-hidden {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(8px);
+    }
+
+    #minimap {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    #minimap-hint {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      color: #64748b;
+      letter-spacing: 0.04em;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      pointer-events: none;
+    }
+
+    #minimap-wrap.minimap-hidden #minimap-hint {
+      opacity: 1;
+    }
+
+    #minimap-hint kbd {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 4px;
+      margin: 0 3px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      font-family: inherit;
+      font-size: 10px;
+      color: #94a3b8;
+    }
   </style>
 </head>
 
@@ -376,6 +439,11 @@
       </svg>
       <span>Computing layout&hellip;</span>
     </div>
+  </div>
+
+    <div id="minimap-wrap" class="minimap-hidden">
+    <canvas id="minimap"></canvas>
+    <div id="minimap-hint">Press <kbd>M</kbd></div>
   </div>
 
   <div id="sidebar">
@@ -538,9 +606,11 @@
         edges: { smooth: { type: 'continuous', roundness: 0.2 } },
       });
 
-      // 8. Freeze physics after stabilization
+      // 8. Freeze physics, then setup minimap with final positions
       network.once('stabilizationIterationsDone', () => {
         network.setOptions({ physics: { enabled: false } });
+        setupMinimap();
+        document.getElementById('minimap-wrap').classList.remove('minimap-hidden');
       });
 
       // 9. Hide loading overlay
@@ -715,6 +785,161 @@
           };
         });
       }
+
+      let minimapVisible = true;
+      let minimapAnimating = false;
+      function setupMinimap() {
+        const wrap = document.getElementById('minimap-wrap');
+        const canvas = document.getElementById('minimap');
+        const ctx = canvas.getContext('2d');
+
+        const dpr = window.devicePixelRatio || 1;
+        const wrapRect = wrap.getBoundingClientRect();
+        const w = wrapRect.width;
+        const h = wrapRect.height;
+        if (w === 0 || h === 0) return;
+
+        canvas.width = w * dpr;
+        canvas.height = h * dpr;
+        canvas.style.width = w + 'px';
+        canvas.style.height = h + 'px';
+
+        let prevMinX, prevMinY, prevRangeX, prevRangeY;
+
+        function computeBounds() {
+          const positions = network.getPositions();
+          const nodeIds = Object.keys(positions);
+          if (nodeIds.length === 0) return false;
+
+          let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+          for (const id of nodeIds) {
+            const p = positions[id];
+            if (p.x < minX) minX = p.x;
+            if (p.x > maxX) maxX = p.x;
+            if (p.y < minY) minY = p.y;
+            if (p.y > maxY) maxY = p.y;
+          }
+
+          const pad = 0.05;
+          const padX = (maxX - minX) * pad || 50;
+          const padY = (maxY - minY) * pad || 50;
+          prevMinX = minX - padX;
+          prevMinY = minY - padY;
+          prevRangeX = (maxX - minX) + padX * 2;
+          prevRangeY = (maxY - minY) + padY * 2;
+          return true;
+        }
+
+        function toX(nx) { return ((nx - prevMinX) / prevRangeX) * w; }
+        function toY(ny) { return ((ny - prevMinY) / prevRangeY) * h; }
+
+        function draw() {
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          ctx.clearRect(0, 0, w, h);
+
+          if (!computeBounds()) return;
+
+          const positions = network.getPositions();
+
+          const colorMap = {};
+          for (const n of rawNodes) colorMap[n.id] = n.color.background;
+
+          ctx.globalAlpha = 0.12;
+          ctx.lineWidth = 0.5;
+          for (const e of rawEdges) {
+            const from = positions[e.from];
+            const to = positions[e.to];
+            if (!from || !to) continue;
+            ctx.strokeStyle = colorMap[e.from] || '#64748b';
+            ctx.beginPath();
+            ctx.moveTo(toX(from.x), toY(from.y));
+            ctx.lineTo(toX(to.x), toY(to.y));
+            ctx.stroke();
+          }
+          ctx.globalAlpha = 0.3;
+
+          const nodeIds = Object.keys(positions);
+          const nodeR = Math.max(0.6, Math.min(1.2, 1.2 - ((nodeIds.length - 50) / 450) * 0.6));
+          for (const n of rawNodes) {
+            const p = positions[n.id];
+            if (!p) continue;
+            ctx.beginPath();
+            ctx.arc(toX(p.x), toY(p.y), nodeR, 0, Math.PI * 2);
+            ctx.fillStyle = n.color.background;
+            ctx.fill();
+          }
+          ctx.globalAlpha = 1;
+
+          const scale = network.getScale();
+          const viewPos = network.getViewPosition();
+          const vw = container.clientWidth / scale;
+          const vh = container.clientHeight / scale;
+          const rx = toX(viewPos.x - vw / 2);
+          const ry = toY(viewPos.y - vh / 2);
+          const rw = (vw / prevRangeX) * w;
+          const rh = (vh / prevRangeY) * h;
+
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(rx, ry, rw, rh);
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
+          ctx.fillRect(rx, ry, rw, rh);
+        }
+
+        draw();
+        network.on('afterDrawing', draw);
+
+        let isDragging = false;
+        canvas.addEventListener('mousedown', (e) => {
+          if (minimapAnimating) return;
+          if (!prevRangeX) return;
+          const r = canvas.getBoundingClientRect();
+          const mx = Math.max(0, Math.min(w, (e.clientX - r.left) * (w / r.width)));
+          const my = Math.max(0, Math.min(h, (e.clientY - r.top) * (h / r.height)));
+          const nx = ((mx / w) * prevRangeX) + prevMinX;
+          const ny = ((my / h) * prevRangeY) + prevMinY;
+
+          isDragging = true;
+          canvas.style.cursor = 'grabbing';
+          minimapAnimating = true;
+          network.moveTo({
+            position: { x: nx, y: ny },
+            scale: network.getScale(),
+            animation: { duration: 400, easingFunction: 'easeInOutQuad' }
+          });
+          network.once('animationFinished', () => { minimapAnimating = false; draw(); });
+        });
+
+        document.addEventListener('mousemove', (e) => {
+          if (!isDragging || !prevRangeX) return;
+          const r = canvas.getBoundingClientRect();
+          const mx = Math.max(0, Math.min(w, (e.clientX - r.left) * (w / r.width)));
+          const my = Math.max(0, Math.min(h, (e.clientY - r.top) * (h / r.height)));
+          const nx = ((mx / w) * prevRangeX) + prevMinX;
+          const ny = ((my / h) * prevRangeY) + prevMinY;
+          network.moveTo({
+            position: { x: nx, y: ny },
+            scale: network.getScale(),
+            animation: { duration: 200, easingFunction: 'easeOutQuad' }
+          });
+        });
+
+        document.addEventListener('mouseup', () => {
+          if (isDragging) { isDragging = false; canvas.style.cursor = 'pointer'; }
+        });
+
+        wrap.addEventListener('mouseenter', () => { canvas.style.cursor = 'pointer'; });
+        wrap.addEventListener('mouseleave', () => { if (!isDragging) canvas.style.cursor = 'default'; });
+      }
+
+      // M key toggle
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'm' || e.key === 'M') {
+          if (e.target.tagName === 'INPUT') return;
+          minimapVisible = !minimapVisible;
+          document.getElementById('minimap-wrap').classList.toggle('minimap-hidden', !minimapVisible);
+        }
+      });
     }
 
     boot().catch(err => {
