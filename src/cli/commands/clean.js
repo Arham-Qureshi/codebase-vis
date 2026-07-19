@@ -19,6 +19,14 @@ export async function cleanCommand() {
     return;
   }
 
+  try {
+    await fs.access(outDir);
+  } catch {
+    p.log.warn(pc.yellow('codebase-out/ does not exist. Nothing to clean.'));
+    p.outro(pc.dim('Clean skipped.'));
+    return;
+  }
+
   const s = p.spinner();
   s.start('Deleting codebase-out/');
 

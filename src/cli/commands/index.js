@@ -5,3 +5,4 @@ export { serveCommand } from './serve.js';
 export { queryCommand } from './query.js';
 export { pathCommand } from './path.js';
 export { explainCommand } from './explain.js';
+export { detectCommand } from './detect.js';
