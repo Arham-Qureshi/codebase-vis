@@ -139,21 +139,18 @@ Re-parsing a large codebase from scratch every time is slow. codebase-vis mainta
 
 This makes `codebase-vis generate` near-instant on repeated runs for codebases with few changes — only the modified files are re-parsed.
 
-### Multi-Layer Ignore System (.agentignore)
+### Ignore System (.agentignore)
 
-File discovery applies five layers of ignore patterns merged into a single `ignore` instance (via the [`ignore`](https://www.npmjs.com/package/ignore) npm package, which implements `.gitignore`-style rules):
+File discovery uses a single source of truth: the **`.agentignore` file** (created by `init`), which implements `.gitignore`-style patterns via the [`ignore`](https://www.npmjs.com/package/ignore) package.
 
-| Layer | Source | Examples |
-|-------|--------|---------|
-| **1. Hardcoded** | `HARDCODED_IGNORES` in `generate.js` | `.git`, `node_modules`, `.agentignore`, `.gitignore`, `LICENSE`, `README.md`, `CHANGELOG.md`, `to-be-done-*` |
-| **2. Stack-specific** | `STACK_IGNORES` from `detectTechStack()` | Node: `dist`, `build`, `.next`; Python: `venv`, `__pycache__`, `*.pyc`; C++: `cmake-build-*`, `.vscode` |
-| **3. Non-code patterns** | `NON_CODE_PATTERNS` constant | `*.txt`, `*.md`, `*.json`, `*.yaml`, `*.png`, `*.jpg`, `*.pdf`, all font files |
-| **4. `.agentignore` file** | User-editable file (created by `init`) | Custom patterns specific to the project |
-| **5. CLI `--ignore` flag** | Runtime option | `codebase-vis generate --ignore tests,fixtures` |
+| Source | Description |
+|--------|-------------|
+| `.agentignore` file | User-editable, created by `init` with stack-appropriate defaults |
+| CLI `--ignore` flag | Runtime additions: `codebase-vis generate --ignore tests,fixtures` |
 
-The `init` command auto-detects your tech stack (via `detectTechStack()` — checks for `package.json`, `pyproject.toml`, `CMakeLists.txt`, etc.) and generates a `.agentignore` with relevant defaults plus a `# --- Add your custom patterns below ---` section for user additions.
+During traversal (`discoverFiles()`), every entry's relative path from the project root is checked with `ig.ignores(relPath)`. Ignored directories are never entered. Files larger than **2 MB** are skipped regardless. Directory recursion runs with a concurrency of 32.
 
-During file traversal (`discoverFiles()`), every entry's relative path from the project root is checked with `ig.ignores(relPath)`. Ignored directories are never entered. Files larger than **2 MB** are skipped regardless. Directory recursion runs with a concurrency of 32 to handle deep trees efficiently.
+Non-code files (`.txt`, `.md`, `.json`, `.png`, etc.) are filtered out earlier by `KNOWN_EXTENSIONS` in `traversal.js` — they never reach the ignore check.
 
 ### Graph Construction & Louvain Community Detection
 
