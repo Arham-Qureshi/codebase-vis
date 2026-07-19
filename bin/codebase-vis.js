@@ -3,7 +3,7 @@
 import { Command } from 'commander';
 import { createRequire } from 'module';
 const { version } = createRequire(import.meta.url)('../package.json');
-import { initCommand, generateCommand, cleanCommand, serveCommand, queryCommand, pathCommand, explainCommand } from '../src/cli/commands/index.js';
+import { initCommand, generateCommand, cleanCommand, serveCommand, queryCommand, pathCommand, explainCommand, detectCommand } from '../src/cli/commands/index.js';
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
@@ -233,6 +233,14 @@ program
   .option('--rpm <number>', 'Rate limit in requests per minute for the Groq API (default: 30)', '30')
   .option('--retry', 'Retry only the clusters that failed in the last explain run')
   .action(explainCommand);
+
+program
+  .command('detect')
+  .description(
+    `${D('Detect circular dependencies in your codebase')}\n` +
+    `${D('Loads graph.json, finds cycles, writes cycles.json for visualization.')}`
+  )
+  .action(detectCommand);
 
 program.hook('postAction', async () => {
   const start = process.__codebaseVisStartTime || program._actionTime;

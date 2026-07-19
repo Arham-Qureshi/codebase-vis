@@ -366,6 +366,7 @@ Every feature except `explain` runs **100% locally**:
 | `serve` | `-p, --port` |
 | `query <target>` | — |
 | `path <source> <target>` | — |
+| `detect` | — |
 | `explain` | `--model`, `--concurrency`, `--rpm`, `--retry`, `--reset` |
 | `clean` | — |
 
@@ -379,6 +380,7 @@ All generated files live under `codebase-out/` in the working directory.
 |------|-------------|
 | `graph.json` | Full dependency graph in [graphology](https://graphology.github.io/) JSON format with community, color, language, and semantic_summary attributes |
 | `graph.html` | Self-contained interactive visualiser (open in any browser) |
+| `cycles.json` | Circular dependency data (created by `detect`) |
 | `semantic-summary.md` | LLM-generated architectural report (created by `explain`) |
 | `cache.json` | Incremental parse cache (mtime + size fingerprints) |
 | `.explain-retry.json` | Failed clusters for retry (created when some clusters fail) |

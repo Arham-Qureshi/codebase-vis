@@ -65,6 +65,22 @@ codebase-vis clean
 
 ![clean output](usage/clean.png)
 
+### `detect`
+
+```bash
+codebase-vis detect
+```
+
+Find circular dependencies in your dependency graph. Prints detected cycles to the terminal and writes `cycles.json` for visualization.
+
+![detect output](usage/detect.png)
+
+### `detect-cycle`
+
+After running `detect`, open `graph.html` and click the cycle toggle to highlight cycles in red. Click individual cycles to zoom in.
+
+![detect cycle visualization](usage/detect-cycle.png)
+
 ### `graph.json`
 
 The full dependency graph in graphology JSON format. Contains all nodes, edges, and attributes.

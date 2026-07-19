@@ -412,6 +412,54 @@
       font-size: 10px;
       color: #94a3b8;
     }
+
+    .cycle-item {
+      padding: 6px 8px;
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 12px;
+      transition: background 0.15s;
+      border-left: 3px solid #ef4444;
+      background: rgba(239, 68, 68, 0.08);
+    }
+
+    .cycle-item:hover {
+      background: rgba(239, 68, 68, 0.18);
+    }
+
+    .cycle-item .cycle-label {
+      color: #fecaca;
+      font-weight: 500;
+    }
+
+    .cycle-item .cycle-files {
+      color: #64748b;
+      font-size: 11px;
+      margin-top: 2px;
+    }
+
+    #cycles-wrap {
+      padding: 12px;
+      border-bottom: 1px solid #2a2a4e;
+    }
+
+    #cycles-wrap h3 {
+      font-size: 11px;
+      color: #64748b;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 600;
+    }
+
+    .filter-item.cycle-toggle {
+      border-left: 3px solid #ef4444;
+      background: rgba(239, 68, 68, 0.08);
+    }
+
+    .filter-item.cycle-toggle:hover {
+      background: rgba(239, 68, 68, 0.15);
+    }
   </style>
 </head>
 
@@ -467,6 +515,14 @@
         <span class="filter-label">Entities</span>
         <span class="filter-count" id="entity-count">0</span>
       </div>
+    </div>
+    <div id="cycles-wrap" style="display:none">
+      <h3>Cycles <span id="cycle-count" style="font-size:11px;color:#fecaca;font-weight:500"></span></h3>
+      <div class="filter-item cycle-toggle" id="toggle-cycles">
+        <span class="filter-dot" style="background:#ef4444"></span>
+        <span class="filter-label">Show Cycles</span>
+      </div>
+      <div id="cycles-list" style="margin-top:8px;max-height:200px;overflow-y:auto"></div>
     </div>
     <div id="legend-wrap">
       <h3>Modules</h3>
@@ -940,6 +996,92 @@
           document.getElementById('minimap-wrap').classList.toggle('minimap-hidden', !minimapVisible);
         }
       });
+
+      // Non-blocking cycle loading (runs after graph renders)
+      loadCycles(network, nodesDS, edgesDS, rawEdges, nodeColorMap, rawNodes);
+    }
+
+    async function loadCycles(network, nodesDS, edgesDS, rawEdges, nodeColorMap, rawNodes) {
+      let cyclesData;
+      try {
+        const cyclesRes = await fetch('./cycles.json');
+        if (!cyclesRes.ok) return;
+        cyclesData = await cyclesRes.json();
+      } catch {
+        return;
+      }
+      let cycles = cyclesData;
+      if (cyclesData && cyclesData.cycles) cycles = cyclesData.cycles;
+      if (!Array.isArray(cycles)) return;
+
+      document.getElementById('cycles-wrap').style.display = 'block';
+
+      document.getElementById('cycle-count').textContent = ` (${cycles.length})`;
+
+      if (!cycles.length) {
+        document.getElementById('cycles-list').innerHTML = '<div class="search-item" style="padding-left:8px;color:#94a3b8;font-style:italic;">No cycles detected</div>';
+        return;
+      }
+
+      const cycleState = { active: false, cycles, cycleNodeIds: new Set(), cycleEdgeIds: new Set() };
+
+      for (const c of cycleState.cycles) {
+        for (const f of c.files) cycleState.cycleNodeIds.add(f.id);
+        for (const e of c.edges) cycleState.cycleEdgeIds.add(e.from + '|' + e.to);
+      }
+
+      const cyclesList = document.getElementById('cycles-list');
+      for (const c of cycleState.cycles) {
+        const item = document.createElement('div');
+        item.className = 'search-item';
+        item.style.borderLeft = '3px solid #ef4444';
+        item.style.paddingLeft = '8px';
+        item.style.cursor = 'pointer';
+        item.textContent = c.label;
+        item.onclick = () => focusCycle(c);
+        cyclesList.appendChild(item);
+      }
+
+      document.getElementById('toggle-cycles').onclick = function () {
+        cycleState.active = !cycleState.active;
+        this.classList.toggle('dimmed', !cycleState.active);
+
+        const edgeUpdates = [];
+        for (const edge of rawEdges) {
+          const edgeKey = edge.from + '|' + edge.to;
+          if (cycleState.cycleEdgeIds.has(edgeKey)) {
+            edgeUpdates.push({
+              id: edge.id,
+              color: { color: cycleState.active ? '#ef4444' : nodeColorMap[edge.from] || '#64748b', opacity: cycleState.active ? 0.9 : 0.55 },
+              width: cycleState.active ? 3 : (edge.dashes ? 1 : 2),
+            });
+          }
+        }
+        edgesDS.update(edgeUpdates);
+
+        const nodeUpdates = [];
+        for (const node of rawNodes) {
+          if (cycleState.cycleNodeIds.has(node.id)) {
+            nodeUpdates.push({ id: node.id, opacity: cycleState.active ? 1 : undefined });
+          } else if (cycleState.active) {
+            nodeUpdates.push({ id: node.id, opacity: 0.15 });
+          }
+        }
+        if (nodeUpdates.length) nodesDS.update(nodeUpdates);
+
+        if (cycleState.active && cycleState.cycles.length) {
+          const firstCycleNodes = cycleState.cycles[0].files.map(f => f.id);
+          network.focus(firstCycleNodes[0], { scale: 1.2, animation: { duration: 500, easingFunction: 'easeInOutQuad' } });
+        }
+      };
+
+      function focusCycle(cycle) {
+        if (!cycleState.active) {
+          document.getElementById('toggle-cycles').click();
+        }
+        const cycleNodeIds = cycle.files.map(f => f.id);
+        network.focus(cycleNodeIds[0], { scale: 1.3, animation: { duration: 600, easingFunction: 'easeInOutQuad' } });
+      }
     }
 
     boot().catch(err => {
