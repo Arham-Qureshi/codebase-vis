@@ -12,74 +12,6 @@ import { exportGraphToJson } from '../../graph/formatter.js';
 import { getHtmlTemplate } from '../../templates/graph-template.js';
 import { loadCache, saveCache, splitFilesByCache, getStalePaths, buildUpdatedCache } from '../../utils/cache.js';
 
-const HARDCODED_IGNORES = [
-  '.git',
-  'codebase-out',
-  '.env',
-  'node_modules',
-  '.agentignore',
-  '.gitignore',
-  '.npmignore',
-  '.dockerignore',
-  '.opencode',
-  '.agents',
-  '.github',
-  'LICENSE',
-  'LICENSE.md',
-  'README.md',
-  'CHANGELOG.md',
-  'CONTRIBUTING.md',
-  'to-be-done-fix',
-  'to-be-done-*',
-];
-
-const NON_CODE_PATTERNS = [
-  '*.txt',
-  '*.md',
-  '*.json',
-  '*.yaml',
-  '*.yml',
-  '*.toml',
-  '*.cfg',
-  '*.ini',
-  '*.log',
-  '*.csv',
-  '*.svg',
-  '*.png',
-  '*.jpg',
-  '*.jpeg',
-  '*.gif',
-  '*.ico',
-  '*.woff',
-  '*.woff2',
-  '*.eot',
-  '*.ttf',
-  '*.otf',
-  '*.pdf',
-];
-
-const STACK_IGNORES = {
-  node: ['node_modules', 'dist', 'build', '.next'],
-  nextjs: ['node_modules', 'dist', 'build', '.next'],
-  angular: ['node_modules', 'dist', 'build'],
-  react: ['node_modules', 'dist', 'build'],
-  vue: ['node_modules', 'dist', 'build'],
-  svelte: ['node_modules', 'dist', 'build'],
-  express: ['node_modules', 'dist', 'build'],
-  fastify: ['node_modules', 'dist', 'build'],
-  hono: ['node_modules', 'dist', 'build'],
-  python: ['venv', '__pycache__', '.pytest_cache', '*.pyc', 'dist', 'build'],
-  django: ['venv', '__pycache__', '.pytest_cache', '*.pyc', 'dist', 'build'],
-  flask: ['venv', '__pycache__', '.pytest_cache', '*.pyc', 'dist', 'build'],
-  fastapi: ['venv', '__pycache__', '.pytest_cache', '*.pyc', 'dist', 'build'],
-  cpp: ['build', 'cmake-build-*', '.vscode'],
-  rust: ['target'],
-  go: [],
-  php: ['vendor'],
-  ruby: ['vendor/bundle'],
-  java: ['build', '.gradle'],
-};
-
 async function readAgentignore(rootDir) {
   try {
     const raw = await fs.readFile(path.join(rootDir, '.agentignore'), 'utf8');
@@ -89,11 +21,6 @@ async function readAgentignore(rootDir) {
   } catch {
     return [];
   }
-}
-
-function buildIgnoreInstance(hardcoded, dynamic, nonCode, agentignore, cliIgnores) {
-  const ig = ignore().add([...hardcoded, ...dynamic, ...nonCode, ...agentignore, ...cliIgnores]);
-  return ig;
 }
 
 export async function generateCommand(paths = [], options = {}) {
@@ -122,8 +49,7 @@ export async function generateCommand(paths = [], options = {}) {
     ? options.ignore.split(',').map(s => s.trim())
     : [];
 
-  const dynamicIgnores = STACK_IGNORES[stack.type] || [];
-  const ig = buildIgnoreInstance(HARDCODED_IGNORES, dynamicIgnores, NON_CODE_PATTERNS, agentignorePatterns, cliIgnores);
+  const ig = ignore().add([...agentignorePatterns, ...cliIgnores]);
 
   s.start('Discovering files...');
   const files = [];
