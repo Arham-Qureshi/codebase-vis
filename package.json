@@ -36,7 +36,7 @@
   "bugs": {
     "url": "https://github.com/Arham-Qureshi/codebase-vis/issues"
   },
-  "homepage": "https://github.com/Arham-Qureshi/codebase-vis#readme",
+  "homepage": "https://github.com/Arham-Qureshi/codebase-vis/wiki",
   "engines": {
     "node": ">=18"
   },
