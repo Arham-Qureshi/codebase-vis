@@ -3,7 +3,7 @@
 import { Command } from 'commander';
 import { createRequire } from 'module';
 const { version } = createRequire(import.meta.url)('../package.json');
-import { initCommand, generateCommand, cleanCommand, serveCommand, queryCommand, pathCommand, explainCommand, detectCommand } from '../src/cli/commands/index.js';
+import { initCommand, generateCommand, cleanCommand, serveCommand, queryCommand, pathCommand, explainCommand, detectCommand, statCommand } from '../src/cli/commands/index.js';
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
@@ -122,6 +122,15 @@ program.configureHelp({
             ['--retry', 'Retry only previously failed clusters'],
           ]
         },
+        {
+          name: 'stat', syntax: 'stat [target]', desc: 'Show codebase statistics and hotspots', use: 'Analyze composition, languages, and hotspots', flags: [
+            ['--json', 'Output as JSON for programmatic use'],
+            ['--top <number>', 'Number of hotspots to display (default: 5)'],
+            ['--all', 'Show all hotspots (no limit)'],
+            ['--verbose', 'Show extended detail'],
+            ['--out <path>', 'Write JSON output to a file (requires --json)'],
+          ]
+        },
       ];
       for (const spec of commandSpecs) {
         out += `  ${B(spec.syntax)}\n`;
@@ -157,6 +166,7 @@ program.configureHelp({
         ['codebase-vis query src/index.js', 'Check a file\'s dependencies'],
         ['codebase-vis explain', 'AI-powered codebase summary'],
         ['codebase-vis explain --retry', 'Retry failed clusters'],
+        ['codebase-vis stat', 'Show codebase statistics and hotspots'],
       ];
       for (const [exCmd, exDesc] of examples) {
         out += `  ${C(exCmd.padEnd(38))}${D(exDesc)}\n`;
@@ -241,6 +251,19 @@ program
     `${D('Loads graph.json, finds cycles, writes cycles.json for visualization.')}`
   )
   .action(detectCommand);
+
+program
+  .command('stat [target]')
+  .description(
+    `${D('Show codebase statistics and hotspots')}\n` +
+    `${D('Analyzes the dependency graph for aggregate metrics.')}`
+  )
+  .option('--json', 'Output as JSON for programmatic use')
+  .option('--top <number>', 'Number of hotspots to display (default: 5)', '5')
+  .option('--all', 'Show all hotspots (no limit)')
+  .option('--verbose', 'Show extended detail (isolated files, entity list)')
+  .option('--out <path>', 'Write JSON output to a file (requires --json)')
+  .action(statCommand);
 
 program.hook('postAction', async () => {
   const start = process.__codebaseVisStartTime || program._actionTime;
