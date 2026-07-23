@@ -93,7 +93,7 @@ function buildCompositionLines(c) {
   lines.push(`  ${pc.bold('Source Files:')}     ${pc.white(c.fileNodes)}`);
   lines.push(`  ${pc.bold('Entities:')}          ${pc.white(c.entityNodes)}  ${pc.dim(`(${c.entityBreakdown.classes} classes, ${c.entityBreakdown.functions} functions, ${c.entityBreakdown.methods} methods)`)}`);
   lines.push(`  ${pc.bold('External Packages:')} ${pc.white(c.externalPackages)}  ${pc.dim(`(${c.npmPackages} npm)`)}`);
-  lines.push(`  ${pc.bold('Communities:')}       ${pc.white(c.communities)}`);
+  lines.push(`  ${pc.bold('Directories:')}       ${pc.white(c.directories)}`);
   lines.push(`  ${pc.bold('Dep Edges:')}         ${pc.white(c.dependencyEdges)}`);
   if (c.crossCommunityEdges > 0) {
     lines.push(`  ${pc.bold('Cross-Module:')}      ${pc.white(c.crossCommunityEdges)}  ${pc.dim(`(${c.crossCommunityPct}%)`)}`);
@@ -101,7 +101,7 @@ function buildCompositionLines(c) {
   return lines;
 }
 
-function buildLanguageLines(languages, communities) {
+function buildLanguageLines(languages, directories) {
   const lines = [];
   lines.push(pc.bold(`  ── Languages ──`));
   if (languages.length === 0) {
@@ -122,12 +122,13 @@ function buildLanguageLines(languages, communities) {
     lines.push(`  ${langStr}${files}  ${deps}  ${ents}`);
   }
 
-  if (communities.length > 0) {
+  if (directories.length > 0) {
     lines.push('');
-    const maxCommLen = Math.max(...communities.map(c => c.name.length), 10);
-    lines.push(`  ${pc.bold(pc.dim(pad('Community', maxCommLen + 2)))}${pc.bold(pc.dim('Files'))}`);
-    for (const comm of communities) {
-      lines.push(`  ${pc.bold(pad(comm.name, maxCommLen + 2))}${pc.white(String(comm.files).padStart(5))}`);
+    const maxDirLen = Math.max(...directories.map(d => toRelative(d.dir).length), 9);
+    lines.push(`  ${pc.bold(pc.dim(pad('Directory', maxDirLen + 2)))}${pc.bold(pc.dim('Files'))}`);
+    for (const dir of directories) {
+      const dirName = toRelative(dir.dir);
+      lines.push(`  ${pc.bold(pad(dirName, maxDirLen + 2))}${pc.white(String(dir.files).padStart(5))}`);
     }
   }
 
@@ -180,12 +181,11 @@ function buildHotspotLines(hotspots, topN) {
   return lines;
 }
 
-/* ── Global mode renderers ── */
 
 function renderGlobalColumns(stats) {
   const c = stats.composition;
   const comp = buildCompositionLines(c);
-  const langs = buildLanguageLines(stats.languages, stats.communities);
+  const langs = buildLanguageLines(stats.languages, stats.directories);
   const health = buildHealthLines(stats.health);
 
   // Row 1: Composition + Languages (2 columns)
@@ -208,7 +208,7 @@ function renderGlobalVertical(stats, options) {
   p.log.message(`  ${pc.bold('Source Files:')}     ${pc.white(c.fileNodes)}`);
   p.log.message(`  ${pc.bold('Entities:')}          ${pc.white(c.entityNodes)}  ${pc.dim(`(${c.entityBreakdown.classes} classes, ${c.entityBreakdown.functions} functions, ${c.entityBreakdown.methods} methods)`)}`);
   p.log.message(`  ${pc.bold('External Packages:')} ${pc.white(c.externalPackages)}  ${pc.dim(`(${c.npmPackages} npm)`)}`);
-  p.log.message(`  ${pc.bold('Communities:')}       ${pc.white(c.communities)}  ${pc.dim('Louvain modules')}`);
+  p.log.message(`  ${pc.bold('Directories:')}       ${pc.white(c.directories)}`);
   p.log.message(`  ${pc.bold('Dep Edges:')}         ${pc.white(c.dependencyEdges)}`);
 
   if (c.crossCommunityEdges > 0) {
@@ -231,12 +231,13 @@ function renderGlobalVertical(stats, options) {
       p.log.message(`  ${langStr}${files}  ${deps}  ${ents}`);
     }
 
-    if (stats.communities.length > 0) {
+    if (stats.directories.length > 0) {
       p.log.message('');
-      const maxCommLen = Math.max(...stats.communities.map(c => c.name.length), 10);
-      p.log.message(`  ${pc.bold(pc.dim(pad('Community', maxCommLen + 2)))}${pc.bold(pc.dim('Files'))}`);
-      for (const comm of stats.communities) {
-        p.log.message(`  ${pc.bold(pad(comm.name, maxCommLen + 2))}${pc.white(String(comm.files).padStart(5))}`);
+      const maxDirLen = Math.max(...stats.directories.map(d => toRelative(d.dir).length), 9);
+      p.log.message(`  ${pc.bold(pc.dim(pad('Directory', maxDirLen + 2)))}${pc.bold(pc.dim('Files'))}`);
+      for (const dir of stats.directories) {
+        const dirName = toRelative(dir.dir);
+        p.log.message(`  ${pc.bold(pad(dirName, maxDirLen + 2))}${pc.white(String(dir.files).padStart(5))}`);
       }
     }
   }
@@ -337,7 +338,6 @@ function renderGlobalStats(stats, options) {
   }
 }
 
-/* ── Target mode ── */
 
 function buildTargetFileLines(stats) {
   const relPath = toRelative(stats.id);
@@ -499,8 +499,7 @@ function formatRelPath(nodeId) {
   return pc.dim(toRelative(nodeId));
 }
 
-/* ── Main command ── */
-
+//main
 export async function statCommand(target, options = {}) {
   const { json = false, top = '5', all = false, verbose = false, out = null } = options;
   const topN = all ? Infinity : (Number(top) || 5);
