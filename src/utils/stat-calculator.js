@@ -219,20 +219,20 @@ function getNodeCycles(cycles, nodeId) {
   return result;
 }
 
-function buildCommunityBreakdown(graph) {
-  const commMap = new Map();
+function buildDirectoryBreakdown(graph) {
+  const dirMap = new Map();
 
   graph.forEachNode((node, attrs) => {
-    if (!isFileNode(attrs) || !attrs.community) return;
+    if (!isFileNode(attrs)) return;
 
-    if (!commMap.has(attrs.community)) {
-      commMap.set(attrs.community, { files: 0, color: attrs.color });
+    const dir = path.dirname(node);
+    if (!dirMap.has(dir)) {
+      dirMap.set(dir, { dir, files: 0 });
     }
-    commMap.get(attrs.community).files++;
+    dirMap.get(dir).files++;
   });
 
-  return Array.from(commMap.entries())
-    .map(([name, data]) => ({ name, ...data }))
+  return Array.from(dirMap.values())
     .sort((a, b) => b.files - a.files);
 }
 
@@ -245,15 +245,14 @@ export function computeGlobalStats(graph, options = {}) {
   const hotspots = computeHotspots(graph, topN);
   const health = computeHealth(graph);
   const coupling = getCrossModuleEdges(graph);
-  const communities = buildCommunityBreakdown(graph);
-
-  composition.communities = communities.length;
+  const directories = buildDirectoryBreakdown(graph);
 
   const result = {
     composition: {
       ...composition,
       ...edgeTypes,
-      communities: communities.length,
+      communities: composition.communities || 0,
+      directories: directories.length,
       crossCommunityEdges: coupling.crossCommunityEdges,
       crossCommunityPct: coupling.crossCommunityPct,
       totalFileToFileEdges: coupling.totalFileToFileEdges,
@@ -269,7 +268,7 @@ export function computeGlobalStats(graph, options = {}) {
       crossCommunityEdges: coupling.crossCommunityEdges,
       crossCommunityPct: coupling.crossCommunityPct,
     },
-    communities,
+    directories,
   };
 
   if (verbose) {
