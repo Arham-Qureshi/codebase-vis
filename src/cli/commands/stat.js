@@ -554,6 +554,11 @@ export async function statCommand(target, options = {}) {
     const output = JSON.stringify(stats, null, 2);
     if (out) {
       const outPath = path.resolve(process.cwd(), out);
+      if (path.relative(process.cwd(), outPath).startsWith('..')) {
+        p.log.error(pc.red('--out path must be inside the current directory.'));
+        if (!isJson) p.outro(pc.dim('Write blocked.'));
+        return;
+      }
       await fs.mkdir(path.dirname(outPath), { recursive: true });
       await fs.writeFile(outPath, output, 'utf-8');
     } else {
