@@ -14,8 +14,10 @@ The self-contained HTML visualizer (`graph.html`) that renders the dependency gr
 
 | File | Role |
 |---|---|
-| `src/templates/graph.html` | The complete visualizer — HTML structure, CSS, and JavaScript |
-| `src/templates/graph-template.js` | Reads `graph.html` from disk with in-memory caching |
+| `src/templates/graph/frame.html` | HTML skeleton with `<!-- CSS -->` and `<!-- SCRIPT -->` injection points |
+| `src/templates/graph/style.css` | Standalone CSS file (all visual styles) |
+| `src/templates/graph/script.js` | Standalone JS file (all visualizer logic) |
+| `src/templates/graph-template.js` | Reads the 3 files from `graph/` dir, inlines CSS + JS into frame, caches result |
 
 ## HTML Structure
 
