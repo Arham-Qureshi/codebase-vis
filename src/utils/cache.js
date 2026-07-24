@@ -9,7 +9,16 @@ export async function loadCache(outDir) {
     const raw = await fs.readFile(path.join(outDir, CACHE_FILENAME), 'utf-8');
     const cache = JSON.parse(raw);
     if (cache && cache.version === CACHE_VERSION) {
-      return cache.files || {};
+      const files = cache.files || {};
+      for (const [filePath, entry] of Object.entries(files)) {
+        if (!entry || typeof entry !== 'object' ||
+            typeof entry.mtime !== 'number' ||
+            typeof entry.size !== 'number' ||
+            (entry.data !== undefined && (entry.data === null || typeof entry.data !== 'object'))) {
+          delete files[filePath];
+        }
+      }
+      return files;
     }
     return null;
   } catch {
