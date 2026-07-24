@@ -31,12 +31,19 @@ export async function serveCommand(options = {}) {
 
   const server = http.createServer(async (req, res) => {
     const urlPath = req.url === '/' ? '/graph.html' : req.url;
-    const filePath = path.join(outDir, urlPath);
-    const ext = path.extname(filePath);
+
+    const resolvedPath = path.resolve(outDir, '.' + urlPath);
+    if (path.relative(outDir, resolvedPath).startsWith('..')) {
+      res.writeHead(403, { 'Content-Type': 'text/plain' });
+      res.end('Forbidden');
+      return;
+    }
+
+    const ext = path.extname(resolvedPath);
     const contentType = MIME_TYPES[ext] || 'text/plain';
 
     try {
-      const data = await fs.readFile(filePath);
+      const data = await fs.readFile(resolvedPath);
       res.writeHead(200, { 'Content-Type': contentType });
       res.end(data);
     } catch {
