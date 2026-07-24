@@ -41,8 +41,11 @@ src/
     enricher.js              — Louvain clustering + color/community assignment
     formatter.js             — Export graph to JSON
   templates/
-    graph.html               — Self-contained visualizer HTML
-    graph-template.js        — HTML loader (cached read)
+    graph/
+      frame.html             — HTML skeleton
+      style.css              — Visual styles
+      script.js              — Visualizer logic
+    graph-template.js        — Assembles frame + CSS + JS → self-contained HTML
   utils/
     traversal.js             — File discovery with ignore support
     cache.js                 — Incremental parse cache (mtime + size)
