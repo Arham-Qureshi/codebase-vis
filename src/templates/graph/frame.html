@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>codebase-vis | Codebase Graph</title>
+  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  <!-- CSS -->
+</head>
+
+<body>
+  <div id="graph-container">
+    <div id="loading-overlay">
+      <svg class="graph-spinner" viewBox="0 0 80 80">
+        <g stroke="#4E79A7" stroke-width="1.5" stroke-linecap="round">
+          <line class="e0" x1="40" y1="12" x2="66" y2="31" />
+          <line class="e1" x1="66" y1="31" x2="56" y2="60" />
+          <line class="e2" x1="56" y1="60" x2="24" y2="60" />
+          <line class="e3" x1="24" y1="60" x2="14" y2="31" />
+          <line class="e4" x1="14" y1="31" x2="40" y2="12" />
+          <line class="e5" x1="40" y1="12" x2="56" y2="60" />
+          <line class="e6" x1="40" y1="12" x2="24" y2="60" />
+          <line class="e7" x1="66" y1="31" x2="24" y2="60" />
+        </g>
+        <g fill="#4E79A7">
+          <circle class="node n0" cx="40" cy="12" r="4" />
+          <circle class="node n1" cx="66" cy="31" r="4" />
+          <circle class="node n2" cx="56" cy="60" r="4" />
+          <circle class="node n3" cx="24" cy="60" r="4" />
+          <circle class="node n4" cx="14" cy="31" r="4" />
+        </g>
+      </svg>
+      <span>Computing layout&hellip;</span>
+    </div>
+  </div>
+
+    <div id="minimap-wrap" class="minimap-hidden">
+    <canvas id="minimap"></canvas>
+    <div id="minimap-hint">Press <kbd>M</kbd></div>
+  </div>
+
+  <div id="sidebar">
+    <div id="search-wrap">
+      <input id="search" type="text" placeholder="Search nodes&hellip;" autocomplete="off">
+      <div id="search-results"></div>
+    </div>
+    <div id="info-panel">
+      <h3>Node Info</h3>
+      <div id="info-content"><span class="empty">Click a node to inspect</span></div>
+    </div>
+    <div id="filters-wrap">
+      <h3>Filters</h3>
+      <div class="filter-item" id="toggle-deps">
+        <span class="filter-dot" style="background:#2d6a4f"></span>
+        <span class="filter-label">Dependencies</span>
+        <span class="filter-count" id="dep-count">0</span>
+      </div>
+      <div class="filter-item" id="toggle-entities">
+        <span class="filter-dot" style="background:#6a2d6a"></span>
+        <span class="filter-label">Entities</span>
+        <span class="filter-count" id="entity-count">0</span>
+      </div>
+    </div>
+    <div id="cycles-wrap" style="display:none">
+      <h3>Cycles <span id="cycle-count" style="font-size:11px;color:#fecaca;font-weight:500"></span></h3>
+      <div class="filter-item cycle-toggle" id="toggle-cycles">
+        <span class="filter-dot" style="background:#ef4444"></span>
+        <span class="filter-label">Show Cycles</span>
+      </div>
+      <div id="cycles-list" style="margin-top:8px;max-height:200px;overflow-y:auto"></div>
+    </div>
+    <div id="legend-wrap">
+      <h3>Modules</h3>
+      <div id="legend"></div>
+    </div>
+    <div id="stats"></div>
+  </div>
+
+  <!-- SCRIPT -->
+</body>
+
+</html>
