@@ -141,8 +141,11 @@ codebase-vis/
 │   │   └── cycle-detector.js         DFS cycle detection
 │   │
 │   ├── templates/
-│   │   ├── graph.html                Self-contained visualizer
-│   │   └── graph-template.js         HTML loader with caching
+│   │   ├── graph/
+│   │   │   ├── frame.html            HTML skeleton
+│   │   │   ├── style.css             Visual styles
+│   │   │   └── script.js             Visualizer logic
+│   │   └── graph-template.js         Assembles frame + CSS + JS → self-contained HTML
 │   │
 │   └── utils/
 │       ├── file-system.js            Sandboxed writes, output path
@@ -321,7 +324,7 @@ flowchart TD
     DETECT --> FS
     EXPLAIN --> FS
 
-    GT --> TEMPLATE["templates/graph.html"]
+    GT --> TEMPLATE["templates/graph/{frame,style,script}"]
 ```
 
 ## Tech Stack
