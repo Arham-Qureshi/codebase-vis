@@ -79,6 +79,7 @@ async function mapConcurrent(items, concurrency, fn, onProgress) {
 async function readGlobalConfig() {
   try {
     const raw = await fs.readFile(GLOBAL_CONFIG_PATH, 'utf-8');
+    await fixConfigPermissions();
     return JSON.parse(raw);
   } catch {
     return {};
@@ -86,8 +87,14 @@ async function readGlobalConfig() {
 }
 
 async function writeGlobalConfig(config) {
-  await fs.mkdir(GLOBAL_CONFIG_DIR, { recursive: true });
+  await fs.mkdir(GLOBAL_CONFIG_DIR, { recursive: true, mode: 0o700 });
   await fs.writeFile(GLOBAL_CONFIG_PATH, JSON.stringify(config, null, 2), 'utf-8');
+  await fs.chmod(GLOBAL_CONFIG_PATH, 0o600);
+}
+
+async function fixConfigPermissions() {
+  await fs.chmod(GLOBAL_CONFIG_DIR, 0o700).catch(() => {});
+  await fs.chmod(GLOBAL_CONFIG_PATH, 0o600).catch(() => {});
 }
 
 async function resolveCredentials(options = {}) {
