@@ -363,19 +363,19 @@ test('verbose mode includes isolatedList and entityList', () => {
   assert.equal(targetStats.entityList[0].name, 'Foo');
 });
 
-test('communities breakdown', () => {
+test('directories breakdown counts files per directory', () => {
   const g = makeGraph();
-  addFileNode(g, '/root/a.js', { community: 'module-a', color: '#F28E2B' });
-  addFileNode(g, '/root/b.js', { community: 'module-a', color: '#F28E2B' });
-  addFileNode(g, '/root/c.js', { community: 'module-b', color: '#4E79A7' });
+  addFileNode(g, '/root/src/a.js');
+  addFileNode(g, '/root/src/b.js');
+  addFileNode(g, '/root/lib/c.js');
 
   const stats = computeGlobalStats(g);
-  assert.equal(stats.composition.communities, 2);
-  assert.equal(stats.communities.length, 2);
-  assert.equal(stats.communities[0].name, 'module-a');
-  assert.equal(stats.communities[0].files, 2);
-  assert.equal(stats.communities[1].name, 'module-b');
-  assert.equal(stats.communities[1].files, 1);
+  assert.equal(stats.composition.directories, 2);
+  assert.equal(stats.directories.length, 2);
+  assert.equal(stats.directories[0].dir, '/root/src');
+  assert.equal(stats.directories[0].files, 2);
+  assert.equal(stats.directories[1].dir, '/root/lib');
+  assert.equal(stats.directories[1].files, 1);
 });
 
 test('computeTargetStats returns null for non-existent node', () => {
