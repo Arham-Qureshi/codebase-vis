@@ -123,6 +123,9 @@ program.configureHelp({
           ]
         },
         {
+          name: 'detect', syntax: 'detect', desc: 'Detect circular dependencies', use: 'Find and visualize import cycles'
+        },
+        {
           name: 'stat', syntax: 'stat [target]', desc: 'Show codebase statistics and hotspots', use: 'Analyze composition, languages, and hotspots', flags: [
             ['--json', 'Output as JSON for programmatic use'],
             ['--top <number>', 'Number of hotspots to display (default: 5)'],
