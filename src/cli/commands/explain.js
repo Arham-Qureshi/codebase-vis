@@ -5,7 +5,8 @@ import path from 'node:path';
 import os from 'node:os';
 import Graph from 'graphology';
 import { loadGraph, toRelative } from '../shared.js';
-import { getOutDirPath } from '../../utils/file-system.js';
+import { getOutDirPath, safeWriteFile } from '../../utils/file-system.js';
+import { logger } from '../../utils/logger.js';
 
 const GLOBAL_CONFIG_DIR = path.join(os.homedir(), '.codebase-vis');
 const GLOBAL_CONFIG_PATH = path.join(GLOBAL_CONFIG_DIR, 'config.json');
@@ -107,9 +108,11 @@ async function resolveCredentials(options = {}) {
   }
 
   if (options.model) {
+    const safeModel = String(options.model).replace(/[^a-zA-Z0-9\/\-\_\.\:]/g, '');
     config.model = options.model;
     await writeGlobalConfig(config);
-    p.log.info(pc.dim('Model overridden to ') + pc.cyan(options.model));
+    p.log.info(pc.dim('Model overridden to ') + pc.cyan(safeModel));
+    logger.info('Explain', `Model set to "${safeModel}"`);
   }
 
   let apiKey = process.env.GROQ_API_KEY || config.apiKey;
@@ -153,7 +156,8 @@ async function resolveCredentials(options = {}) {
 }
 
 function resolveConcurrency(raw) {
-  const val = raw ? Number(raw) : 2;
+  let val = raw ? Number(raw) : 2;
+  if (isNaN(val) || val < 1) val = 2;
   if (val > 5) {
     p.log.warn(pc.yellow(`--concurrency capped to 5 (requested: ${val}). Maximum allowed is 5.`));
     return 5;
@@ -245,8 +249,19 @@ async function callLLM(apiKey, model, payload) {
   }
 
   if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`LLM API error (${response.status}): ${body}`);
+    const messages = {
+      401: 'API key is invalid or unauthorized',
+      403: 'Access forbidden — check your API key permissions',
+      404: 'Model not found — check the model name',
+      429: 'Rate limited',
+      500: 'Groq API server error',
+      502: 'Groq API unavailable (502 Bad Gateway)',
+      503: 'Groq API unavailable (503 Service Unavailable)',
+    };
+    const msg = messages[response.status] || `Groq API returned status ${response.status}`;
+    const err = new Error(msg);
+    err.status = response.status;
+    throw err;
   }
 
   const data = await response.json();
@@ -307,7 +322,8 @@ export async function explainCommand(options) {
     s.start(`Retrying ${retryData.length} failed clusters...`);
 
     const concurrency = resolveConcurrency(options.concurrency);
-    const rpm = options.rpm ? Number(options.rpm) : 30;
+    let rpm = options.rpm ? Number(options.rpm) : 30;
+    if (!rpm || isNaN(rpm) || rpm < 1) rpm = 30;
     const bucket = new TokenBucket(rpm);
 
     const completed = [];
@@ -324,7 +340,14 @@ export async function explainCommand(options) {
         }
         completed.push({ ...fc, summary });
       } catch (err) {
-        p.log.warn(pc.yellow(`Cluster ${fc.index + 1} still failed: ${err.message}`));
+        if (err.status === 401 || err.status === 403) {
+          s.stop(pc.red('Authentication failed'));
+          p.log.error(pc.red('Authentication failed'));
+          p.log.info(pc.dim('Run ') + pc.cyan('codebase-vis explain') + pc.dim(' to reconfigure credentials, or set ') + pc.cyan('GROQ_API_KEY'));
+          p.outro(pc.dim('Retry aborted.'));
+          return;
+        }
+        p.log.warn(pc.yellow(`Cluster ${fc.index + 1} still failed.`));
         stillFailed.push(fc);
       }
     }
@@ -334,20 +357,22 @@ export async function explainCommand(options) {
       for (const fc of completed) {
         mdContent += `### Cluster ${fc.index + 1} of ${totalClusters}\n\n${fc.summary}\n\n---\n\n`;
       }
-      await fs.appendFile(mdPath, mdContent, 'utf-8');
+      let existing = await fs.readFile(mdPath, 'utf-8').catch(() => '');
+      existing = existing.replace(/\n## Retried Clusters[\s\S]*$/, '');
+      await safeWriteFile(mdPath, existing + mdContent);
       s.stop(pc.green(`${completed.length}/${retryData.length} clusters retried successfully.`));
     } else {
       s.stop(pc.red('No clusters could be retried.'));
     }
 
     if (stillFailed.length > 0) {
-      await fs.writeFile(retryPath, JSON.stringify(stillFailed, null, 2), 'utf-8');
+      await safeWriteFile(retryPath, JSON.stringify(stillFailed, null, 2));
       p.log.info(pc.dim('Run ') + pc.cyan('codebase-vis explain --retry') + pc.dim(' to retry remaining failed clusters.'));
     } else {
       await fs.rm(retryPath);
     }
 
-    await fs.writeFile(graphPath, JSON.stringify(graph.export(), null, 2), 'utf-8');
+    await safeWriteFile(graphPath, JSON.stringify(graph.export(), null, 2));
     p.outro(pc.green('✔') + pc.dim(' Retry complete.'));
     return;
   }
@@ -385,7 +410,8 @@ export async function explainCommand(options) {
   }
 
   const concurrency = resolveConcurrency(options.concurrency);
-  const rpm = options.rpm ? Number(options.rpm) : 30;
+  let rpm = options.rpm ? Number(options.rpm) : 30;
+  if (!rpm || isNaN(rpm) || rpm < 1) rpm = 30;
   const bucket = new TokenBucket(rpm);
 
   s.start(`Analyzing clusters... (0/${batches.length})`);
@@ -406,7 +432,15 @@ export async function explainCommand(options) {
   for (let i = 0; i < results.length; i++) {
     const result = results[i];
     if (result.status !== 'fulfilled') {
-      p.log.warn(pc.yellow(`Cluster ${i + 1} failed: ${result.reason.message}`));
+      const status = result.reason.status;
+      if (status === 401 || status === 403) {
+        s.stop(pc.red('Authentication failed'));
+        p.log.error(pc.red(result.reason.message));
+        p.log.info(pc.dim('Run ') + pc.cyan('codebase-vis explain') + pc.dim(' to reconfigure credentials, or set ') + pc.cyan('GROQ_API_KEY'));
+        p.outro(pc.dim('Explain aborted.'));
+        return;
+      }
+      p.log.warn(pc.yellow(`Cluster ${i + 1} failed`));
       failedClusters.push({
         index: i,
         batch: batches[i],
@@ -424,11 +458,11 @@ export async function explainCommand(options) {
   }
 
   const exported = graph.export();
-  await fs.writeFile(graphPath, JSON.stringify(exported, null, 2), 'utf-8');
+  await safeWriteFile(graphPath, JSON.stringify(exported, null, 2));
 
   mdSections.sort((a, b) => a.index - b.index);
   const header = `# Semantic Codebase Summary\n\n_Generated by codebase-vis explain_\n\n---\n\n`;
-  await fs.writeFile(mdPath, header, 'utf-8');
+  await safeWriteFile(mdPath, header);
   for (const { index, summary } of mdSections) {
     const section = `## Cluster ${index + 1} of ${batches.length}\n\n${summary}\n\n---\n\n`;
     await fs.appendFile(mdPath, section, 'utf-8');
@@ -436,7 +470,7 @@ export async function explainCommand(options) {
 
   const failedCount = failedClusters.length;
   if (failedCount > 0) {
-    await fs.writeFile(retryPath, JSON.stringify(failedClusters, null, 2), 'utf-8');
+    await safeWriteFile(retryPath, JSON.stringify(failedClusters, null, 2));
     s.stop(pc.yellow(`${batches.length - failedCount}/${batches.length} clusters analyzed (${failedCount} failed)`));
     p.log.info(pc.dim('Tip: Run ') + pc.cyan('codebase-vis explain --retry') + pc.dim(' to retry only the failed clusters.'));
   } else {
