@@ -14,7 +14,10 @@ async function loadCycles() {
   try {
     const cyclesPath = path.join(getOutDirPath(), CYCLES_FILENAME);
     const raw = await fs.readFile(cyclesPath, 'utf-8');
-    return JSON.parse(raw);
+    const data = JSON.parse(raw);
+    const cycles = Array.isArray(data) ? data : data?.cycles;
+    if (!Array.isArray(cycles)) return null;
+    return cycles.filter(c => c && typeof c.id === 'number');
   } catch {
     return null;
   }
