@@ -54,7 +54,8 @@ async function parseFileInternal(filePath) {
   const rootNode = tree.rootNode;
   const dependencies = config.extractDeps(rootNode, config.grammar);
   const entities = config.extractEnts(rootNode, config.grammar);
-  return { id: filePath, dependencies, entities };
+  const relPath = path.relative(process.cwd(), filePath);
+  return { id: relPath, dependencies, entities };
 }
 
 export async function parseFile(filePath) {
@@ -66,13 +67,16 @@ export async function parseFile(filePath) {
 }
 
 export async function parseFileBatch(files, onProgress, jobs) {
-  // Determine number of workers: either user-specified or (CPU cores - 1), minimum 1
-  const numWorkers = jobs ?? Math.max(1, os.cpus().length - 1);
+  const cpuCores = os.cpus().length;
+  const maxWorkers = Math.max(cpuCores, 4);
+  const requested = jobs ?? Math.max(1, cpuCores - 1);
+  const numWorkers = Math.min(requested, maxWorkers);
+  if (requested !== numWorkers) {
+    console.warn(`[WARN] --jobs capped to ${numWorkers} (requested: ${requested}). Maximum recommended is ${maxWorkers}.`);
+  }
 
-  // Resolve the absolute path to the worker script
   const workerURL = new URL('./parse-worker.js', import.meta.url);
 
-  // Initialize the pool which spawns the child processes
   const pool = new WorkerPool(numWorkers, workerURL);
 
   // Pre-allocate the results array to preserve the original order of files
@@ -88,7 +92,7 @@ export async function parseFileBatch(files, onProgress, jobs) {
       })
       .catch(() => {
         // On failure, store a fallback error object
-        results[i] = { id: file, error: true };
+        results[i] = { id: path.relative(process.cwd(), file), error: true };
       })
       .then(() => {
         // Regardless of success/failure, update progress
