@@ -18,9 +18,9 @@ test('findCommonRoot finds common root for sibling paths', async () => {
   assert.ok(result.startsWith('/a/b') || result === '/a/b');
 });
 
-test('findCommonRoot returns filesystem root when no common directory', async () => {
+test('findCommonRoot returns dot when no common directory', async () => {
   const { findCommonRoot } = await import('../../src/graph/enricher.js');
-  assert.equal(findCommonRoot(['/a', '/b']), '/');
+  assert.equal(findCommonRoot(['/a', '/b']), '.');
 });
 
 test('enrichNodes sets x and y coordinates', async () => {
