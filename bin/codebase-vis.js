@@ -102,7 +102,7 @@ program.configureHelp({
             ['--ignore <paths>', 'Directories to skip (comma-separated)'],
             ['--no-clear', 'Skip clearing the terminal'],
             ['--verbose', 'Show per-file parse errors'],
-            ['--jobs <number>', 'Parallel workers (default: CPU count - 1)'],
+            ['--jobs <number>', 'Parallel workers (default: CPU count - 1, max: CPU count)'],
           ]
         },
         { name: 'clean', syntax: 'clean', desc: 'Remove the generated codebase-out/ directory', use: 'Start fresh or free up disk space' },
@@ -198,7 +198,7 @@ program
   .option('--ignore <paths>', 'Comma-separated list of additional directories to skip')
   .option('--no-clear', 'Skip clearing the terminal')
   .option('--verbose', 'Show detailed per-file parse errors')
-  .option('--jobs <number>', 'Number of parallel parse workers (default: CPU count - 1)')
+  .option('--jobs <number>', 'Number of parallel parse workers (default: CPU count - 1, max: CPU count)')
   .action(generateCommand);
 
 program
