@@ -1,6 +1,7 @@
 import * as p from '@clack/prompts';
 import pc from 'picocolors';
 import path from 'node:path';
+import os from 'node:os';
 import fs from 'node:fs/promises';
 import ignore from 'ignore';
 import { createOutDir, safeWriteFile } from '../../utils/file-system.js';
@@ -98,9 +99,20 @@ export async function generateCommand(paths = [], options = {}) {
   let freshResults = [];
   if (toParse.length > 0) {
     s.message(cache ? `Parsing ${toParse.length} changed file(s)...` : 'Parsing files...');
+    const cpuCores = os.cpus().length;
+    const maxWorkers = Math.max(cpuCores, 4);
+    let numJobs = options.jobs ? Number(options.jobs) : undefined;
+    if (numJobs !== undefined) {
+      if (isNaN(numJobs) || numJobs < 1) {
+        numJobs = undefined;
+      } else if (numJobs > maxWorkers) {
+        p.log.warn(pc.yellow(`--jobs capped to ${maxWorkers} (requested: ${numJobs}). Max recommended is ${cpuCores}.`));
+        numJobs = maxWorkers;
+      }
+    }
     freshResults = await parseFileBatch(toParse, (done, total) => {
       s.message(`Parsing files... ${done}/${total}`);
-    }, options.jobs ? Number(options.jobs) : undefined);
+    }, numJobs);
 
     for (const result of freshResults) {
       if (result && !result.error) {

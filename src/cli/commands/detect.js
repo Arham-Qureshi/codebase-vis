@@ -5,7 +5,8 @@ import path from 'node:path';
 import Graph from 'graphology';
 import { loadGraph, toRelative } from '../shared.js';
 import { detectCycles, enrichCycles } from '../../graph/cycle-detector.js';
-import { getOutDirPath } from '../../utils/file-system.js';
+import { getOutDirPath, safeWriteFile } from '../../utils/file-system.js';
+import { logger } from '../../utils/logger.js';
 
 const CYCLES_FILENAME = 'cycles.json';
 
@@ -36,9 +37,8 @@ export async function detectCommand() {
       p.log.warn(pc.yellow(`Found ${pc.bold(200)}+ cycles. Showing first 200.`));
     }
 
-    const outDir = getOutDirPath();
-    const cyclesPath = path.join(outDir, CYCLES_FILENAME);
-    await fs.writeFile(cyclesPath, JSON.stringify(enriched, null, 2), 'utf-8');
+    const cyclesPath = path.join(getOutDirPath(), CYCLES_FILENAME);
+    await safeWriteFile(cyclesPath, JSON.stringify(enriched, null, 2));
 
     p.log.message('');
 
@@ -70,7 +70,8 @@ export async function detectCommand() {
     p.log.info(pc.dim('Open ') + pc.cyan('graph.html') + pc.dim(' and click "Show Cycles" to visualize.'));
   } catch (err) {
     s.stop(pc.red('Error'));
-    p.log.error(pc.red(`Detection failed: ${err.message}`));
+    logger.error('Detect', 'Detection failed');
+    p.log.error(pc.red('Detection failed. Ensure graph.json is valid.'));
   }
 
   p.outro(pc.green('✔') + pc.dim(' Detection complete.'));

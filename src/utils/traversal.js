@@ -3,6 +3,7 @@ import path from 'node:path';
 import { KNOWN_EXTENSIONS } from '../parser/languages.js';
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024;
+const MAX_DEPTH = 256;
 const DIR_CONCURRENCY = 32;
 
 export async function discoverFiles(targetDir, ig) {
@@ -10,7 +11,8 @@ export async function discoverFiles(targetDir, ig) {
   const root = path.resolve(targetDir);
   let ignoredCount = 0;
 
-  async function walk(dir) {
+  async function walk(dir, depth = 0) {
+    if (depth > MAX_DEPTH) return;
     let entries;
     try {
       entries = await fs.readdir(dir);
@@ -41,7 +43,7 @@ export async function discoverFiles(targetDir, ig) {
 
       const fullPath = path.join(dir, item.name);
       if (item.stats.isDirectory()) {
-        dirPromises.push(walk(fullPath));
+        dirPromises.push(walk(fullPath, depth + 1));
       } else if (item.stats.isFile()) {
         if (item.stats.size > MAX_FILE_SIZE) continue;
         const ext = path.extname(item.name).toLowerCase();

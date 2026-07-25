@@ -25,7 +25,7 @@ test('parseFile parses a JS file correctly', async () => {
   const fp = await createFile('test.js', "import x from 'y';\nclass Foo {}");
   const result = await parseFile(fp);
   assert.ok(result);
-  assert.equal(result.id, fp);
+  assert.equal(result.id, path.relative(process.cwd(), fp));
   assert.ok(result.dependencies.includes('y'));
   assert.ok(result.entities.classes.includes('Foo'));
 });
@@ -73,9 +73,9 @@ test('parseFileBatch preserves input order', async () => {
   const f2 = await createFile('second.js', 'const y = 2;');
   const f3 = await createFile('third.js', 'const z = 3;');
   const results = await parseFileBatch([f1, f2, f3]);
-  assert.equal(results[0].id, f1);
-  assert.equal(results[1].id, f2);
-  assert.equal(results[2].id, f3);
+  assert.equal(results[0].id, path.relative(process.cwd(), f1));
+  assert.equal(results[1].id, path.relative(process.cwd(), f2));
+  assert.equal(results[2].id, path.relative(process.cwd(), f3));
 });
 
 test('parseFileBatch handles partial failures', async () => {

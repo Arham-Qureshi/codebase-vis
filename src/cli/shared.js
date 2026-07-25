@@ -5,9 +5,9 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { getOutDirPath } from '../utils/file-system.js';
 
-// Convert an absolute node ID to a project-relative path
+// Convert a node ID to a project-relative path
 export function toRelative(nodeId) {
-  return path.relative(process.cwd(), nodeId) || nodeId;
+  return path.relative(process.cwd(), nodeId) || path.basename(nodeId);
 }
 
 // color based on its type (blue-> file, yellow-> package, green-> class, magenta-> function/entity)
@@ -39,7 +39,7 @@ export function resetTimer() {
 export async function resolveNode(graph, target) {
   if (graph.hasNode(target)) return target;
 
-  const resolved = path.resolve(process.cwd(), target);
+  const resolved = path.relative(process.cwd(), path.resolve(process.cwd(), target));
   if (graph.hasNode(resolved)) return resolved;
 
   // Partial match

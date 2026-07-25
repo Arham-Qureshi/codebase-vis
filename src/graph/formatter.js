@@ -3,7 +3,9 @@ import { safeWriteFile } from '../utils/file-system.js';
 
 //exports the graph to json files
 export async function exportGraphToJson(graph, outDir) {
-  const data = JSON.stringify(graph.export(), null, 2);
+  const graphData = graph.export();
+  const usePretty = graphData.nodes.length < 50000;
+  const data = JSON.stringify(graphData, null, usePretty ? 2 : 0);
   const targetPath = path.join(outDir, 'graph.json');
   await safeWriteFile(targetPath, data);
   return targetPath;

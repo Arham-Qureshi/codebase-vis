@@ -3,47 +3,70 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { enrichNodes } from './enricher.js';
 
+const MAX_NODES = 500000;
+
+function sanitizeName(name) {
+  return String(name).replace(/::/g, '__').replace(/[&<>"']/g, '_').trim();
+}
+
+function estimateEntityCount(parsedData) {
+  let count = 0;
+  for (const data of parsedData) {
+    const entities = data.entities;
+    if (entities && !Array.isArray(entities)) {
+      count += (entities.classes?.length || 0) + (entities.functions?.length || 0) + (entities.methods?.length || 0);
+    } else if (entities) {
+      count += entities.length;
+    }
+  }
+  return count;
+}
+
 export function buildGraph(parsedData) {
   const pkgDeps = loadPackageDeps();
-  // Initialize a directed graph 
   const graph = new Graph({ multi: true, directed: true });
 
-  // Checks if a path is relative by matching:
-  // ^      - start of string
-  // \.     - a literal dot
-  // \.?    - an optional second dot (for ..)
-  // [/\\]  - a forward or backward slash
   const isRelative = (s) => /^\.\.?[/\\]/.test(s);
+
+  const entityCount = estimateEntityCount(parsedData);
+  const skipEntities = (parsedData.length + entityCount) > MAX_NODES;
+  if (skipEntities) {
+    console.warn(`[WARN] Graph would exceed ${MAX_NODES} nodes (${parsedData.length} files + ${entityCount} entities). Skipping entity nodes to conserve memory.`);
+  }
 
   for (const data of parsedData) {
     graph.addNode(data.id, {
       dependencies: data.dependencies,
     });
 
+    if (skipEntities) continue;
+
     const entities = data.entities;
 
-    // Handle structured entities: { classes, functions, docstrings }
     if (entities && !Array.isArray(entities)) {
       for (const cls of [...new Set(entities.classes || [])]) {
-        const entityId = `${data.id}::${cls}`;
+        const safe = sanitizeName(cls);
+        const entityId = `${data.id}::${safe}`;
         if (!graph.hasNode(entityId)) {
-          graph.addNode(entityId, { label: cls, kind: 'class' });
+          graph.addNode(entityId, { label: safe, kind: 'class' });
           graph.addEdge(data.id, entityId, { relation: 'contains' });
         }
       }
 
       for (const fn of [...new Set(entities.functions || [])]) {
-        const entityId = `${data.id}::${fn}`;
+        const safe = sanitizeName(fn);
+        const entityId = `${data.id}::${safe}`;
         if (!graph.hasNode(entityId)) {
-          graph.addNode(entityId, { label: fn, kind: 'function' });
+          graph.addNode(entityId, { label: safe, kind: 'function' });
           graph.addEdge(data.id, entityId, { relation: 'contains' });
         }
       }
 
       for (const method of [...new Set(entities.methods || [])]) {
-        const entityId = `${data.id}::${method}`;
+        const safe = sanitizeName(method);
+        const entityId = `${data.id}::${safe}`;
         if (!graph.hasNode(entityId)) {
-          graph.addNode(entityId, { label: method, kind: 'method' });
+          graph.addNode(entityId, { label: safe, kind: 'method' });
           graph.addEdge(data.id, entityId, { relation: 'contains' });
         }
       }
@@ -52,10 +75,10 @@ export function buildGraph(parsedData) {
         graph.setNodeAttribute(data.id, 'docstrings', entities.docstrings);
       }
     } else {
-      // Backward compatibility: flat array of entity names
       for (const entity of [...new Set(entities || [])]) {
-        const entityId = `${data.id}::${entity}`;
-        graph.addNode(entityId, { label: entity, kind: 'entity' });
+        const safe = sanitizeName(entity);
+        const entityId = `${data.id}::${safe}`;
+        graph.addNode(entityId, { label: safe, kind: 'entity' });
         graph.addEdge(data.id, entityId, { relation: 'contains' });
       }
     }
@@ -67,11 +90,9 @@ export function buildGraph(parsedData) {
       let target = null;
 
       if (isRelative(dep)) {
-        // Standard relative path (./foo, ../bar)
-        target = path.resolve(path.dirname(data.id), dep);
+        target = path.relative(process.cwd(), path.resolve(path.dirname(data.id), dep));
       } else {
-        // in this case, either it will be a absolute path or a external file path
-        const localCandidate = path.resolve(path.dirname(data.id), dep);
+        const localCandidate = path.relative(process.cwd(), path.resolve(path.dirname(data.id), dep));
         if (graph.hasNode(localCandidate)) {
           target = localCandidate;
         }

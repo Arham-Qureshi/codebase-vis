@@ -26,9 +26,9 @@ test('toRelative returns relative path from process.cwd()', async () => {
   assert.equal(rel, path.join('src', 'file.js'));
 });
 
-test('toRelative falls back to nodeId when relative is empty', async () => {
+test('toRelative falls back to basename when relative is empty', async () => {
   const { toRelative } = await import('../../src/cli/shared.js');
-  assert.equal(toRelative(process.cwd()), process.cwd());
+  assert.equal(toRelative(process.cwd()), path.basename(process.cwd()));
 });
 
 test('loadGraph returns null when graph.json does not exist', async () => {

@@ -90,21 +90,21 @@ test('handles legacy flat entity array format', async () => {
 test('resolves relative dependency ./', async () => {
   const { buildGraph } = await import('../../src/graph/builder.js');
   const data = [
-    { id: '/root/src/index.js', dependencies: ['./util.js'], entities: [] },
-    { id: '/root/src/util.js', dependencies: [], entities: [] },
+    { id: 'src/index.js', dependencies: ['./util.js'], entities: [] },
+    { id: 'src/util.js', dependencies: [], entities: [] },
   ];
   const graph = buildGraph(data);
-  assert(graph.hasEdge('/root/src/index.js', '/root/src/util.js'));
+  assert(graph.hasEdge('src/index.js', 'src/util.js'));
 });
 
 test('resolves relative dependency ../', async () => {
   const { buildGraph } = await import('../../src/graph/builder.js');
   const data = [
-    { id: '/root/src/index.js', dependencies: ['../lib/helper.js'], entities: [] },
-    { id: '/root/lib/helper.js', dependencies: [], entities: [] },
+    { id: 'src/index.js', dependencies: ['../lib/helper.js'], entities: [] },
+    { id: 'lib/helper.js', dependencies: [], entities: [] },
   ];
   const graph = buildGraph(data);
-  assert(graph.hasEdge('/root/src/index.js', '/root/lib/helper.js'));
+  assert(graph.hasEdge('src/index.js', 'lib/helper.js'));
 });
 
 test('marks unresolved non-relative deps as external packages', async () => {

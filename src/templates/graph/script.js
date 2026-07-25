@@ -1,13 +1,20 @@
     function esc(s) {
       return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
     async function boot() {
       const overlay = document.getElementById('loading-overlay');
 
-      // 1. Fetch graph data
-      const res = await fetch('./graph.json');
+      // 1. Fetch graph data (with 30s timeout)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      let res;
+      try {
+        res = await fetch('./graph.json', { signal: controller.signal });
+      } finally {
+        clearTimeout(timeoutId);
+      }
       if (!res.ok) throw new Error('Failed to load graph.json');
       const data = await res.json();
 
@@ -580,5 +587,5 @@
     boot().catch(err => {
       console.error('Graph boot error:', err);
       document.getElementById('loading-overlay').innerHTML =
-        '<span style="color:#ef4444">Error loading graph: ' + err.message + '</span>';
+        '<span style="color:#ef4444">Error loading graph: ' + esc(err.message) + '</span>';
     });

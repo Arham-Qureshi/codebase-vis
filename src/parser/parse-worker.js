@@ -51,14 +51,16 @@ async function parseFile(filePath) {
   const rootNode = tree.rootNode;
   const dependencies = config.extractDeps(rootNode, config.grammar);
   const entities = config.extractEnts(rootNode, config.grammar);
-  return { id: filePath, dependencies: dependencies || [], entities: entities || [] };
+  const relPath = path.relative(process.cwd(), filePath);
+  return { id: relPath, dependencies: dependencies || [], entities: entities || [] };
 }
 
 process.on('message', async (msg) => {
   try {
     const result = await parseFile(msg);
-    process.send(result || { id: msg, error: true });
+    const id = result ? result.id : path.relative(process.cwd(), msg);
+    process.send(result || { id, error: true });
   } catch {
-    process.send({ id: msg, error: true });
+    process.send({ id: path.relative(process.cwd(), msg), error: true });
   }
 });

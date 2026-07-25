@@ -27,7 +27,7 @@ function findCommonRoot(absPaths) {
   while (depth < first.length && split.every((s) => s[depth] === first[depth])) {
     depth++;
   }
-  return first.slice(0, depth).join(path.sep) || path.sep;
+  return first.slice(0, depth).join(path.sep) || '.';
 }
 
 export { findCommonRoot };
