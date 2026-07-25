@@ -72,13 +72,14 @@ test('splitFilesByCache returns cached when mtime and size match', async () => {
   const filePath = path.join(tmpDir, 'match.js');
   await fs.writeFile(filePath, 'const x = 1;', 'utf-8');
   const stat = await fs.stat(filePath);
+  const relPath = path.relative(process.cwd(), filePath);
   const cache = {
-    [filePath]: { mtime: stat.mtimeMs, size: stat.size, data: { id: filePath, dependencies: ['y'] } },
+    [relPath]: { mtime: stat.mtimeMs, size: stat.size, data: { id: relPath, dependencies: ['y'] } },
   };
   const result = await splitFilesByCache([filePath], cache);
   assert.equal(result.toParse.length, 0);
   assert.equal(result.cachedResults.length, 1);
-  assert.deepEqual(result.cachedResults[0], { id: filePath, dependencies: ['y'] });
+  assert.deepEqual(result.cachedResults[0], { id: relPath, dependencies: ['y'] });
 });
 
 test('splitFilesByCache returns toParse when mtime changed', async () => {
@@ -140,8 +141,8 @@ test('getStalePaths returns paths missing from discovered set', async () => {
 
 test('getStalePaths returns empty when all paths current', async () => {
   const { getStalePaths } = await import('../../src/utils/cache.js');
-  const cache = { '/here.js': { mtime: 1, size: 1, data: null } };
-  const stale = getStalePaths(cache, new Set(['/here.js']));
+  const cache = { 'here.js': { mtime: 1, size: 1, data: null } };
+  const stale = getStalePaths(cache, new Set([path.resolve(process.cwd(), 'here.js')]));
   assert.equal(stale.length, 0);
 });
 
