@@ -4,7 +4,7 @@ import { Command } from 'commander';
 import { createRequire } from 'module';
 const { version } = createRequire(import.meta.url)('../package.json');
 import { initCommand, generateCommand, cleanCommand, serveCommand, queryCommand, pathCommand, explainCommand, detectCommand, statCommand } from '../src/cli/commands/index.js';
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, chmodSync } from 'node:fs';
 import { join } from 'path';
 import { homedir } from 'os';
 import picocolors from 'picocolors';
@@ -48,7 +48,7 @@ async function checkForUpdate() {
     try {
       mkdirSync(cacheDir, { recursive: true, mode: 0o700 });
       try { writeFileSync(cacheFile, JSON.stringify({ latest, timestamp: Date.now() }), { mode: 0o600 }); }
-      catch { writeFileSync(cacheFile, JSON.stringify({ latest, timestamp: Date.now() })); try { require('fs').chmodSync(cacheFile, 0o600); } catch {} }
+      catch { writeFileSync(cacheFile, JSON.stringify({ latest, timestamp: Date.now() })); try { chmodSync(cacheFile, 0o600); } catch {} }
     } catch { }
 
     if (latest !== version && semverGt(latest, version)) {
