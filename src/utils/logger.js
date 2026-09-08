@@ -16,21 +16,46 @@ function localTimestamp() {
 
 const MAX_LOG_SIZE = 5 * 1024 * 1024;
 
-const logPath = process.env.CODEBASE_VIS_LOG_FILE || path.join(process.cwd(), 'codebase-out', 'codebase-vis.log');
+function sanitizeLogInput(v) {
+  return String(v).replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/[\x00-\x1f\x7f-\x9f]/g, '');
+}
+
+function resolveLogPath() {
+  const raw = process.env.CODEBASE_VIS_LOG_FILE;
+  if (raw) {
+    const resolved = path.resolve(raw);
+    const cwdReal = (() => { try { return fs.realpathSync(process.cwd()) + path.sep; } catch { return process.cwd() + path.sep; } })();
+    if (!resolved.startsWith(cwdReal)) {
+      return path.join(process.cwd(), 'codebase-out', 'codebase-vis.log');
+    }
+    return resolved;
+  }
+  return path.join(process.cwd(), 'codebase-out', 'codebase-vis.log');
+}
+
+const logPath = resolveLogPath();
 
 let logStream = null;
 try {
   const dir = path.dirname(logPath);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  if (fs.existsSync(logPath) && fs.statSync(logPath).size > MAX_LOG_SIZE) {
-    fs.truncateSync(logPath, 0);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+  try { fs.chmodSync(dir, 0o700); } catch {}
+  if (fs.existsSync(logPath)) {
+    try { fs.chmodSync(logPath, 0o600); } catch {}
+    if (fs.statSync(logPath).size > MAX_LOG_SIZE) {
+      fs.truncateSync(logPath, 0);
+    }
   }
-  logStream = fs.createWriteStream(logPath, { flags: 'a' });
+  logStream = fs.createWriteStream(logPath, { flags: 'a', mode: 0o600 });
+  try { fs.chmodSync(logPath, 0o600); } catch {}
   logStream.write(`--- Logger started at ${localTimestamp()} ---\n`);
 } catch { }
 
 function formatArgs(args) {
-  return args.map(a => typeof a === 'object' ? (a instanceof Error ? a.stack || a.message : JSON.stringify(a)) : String(a)).join(' ');
+  return args.map(a => {
+    const s = typeof a === 'object' ? (a instanceof Error ? a.stack || a.message : JSON.stringify(a)) : String(a);
+    return sanitizeLogInput(s);
+  }).join(' ');
 }
 
 function log(level, context, ...args) {
