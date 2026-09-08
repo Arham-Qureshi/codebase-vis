@@ -3,6 +3,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { enrichNodes } from './enricher.js';
 import { resolveJsImport } from '../parser/resolver.js';
+import { logger } from '../utils/logger.js';
 
 const MAX_NODES = 500000;
 
@@ -101,7 +102,9 @@ export function buildGraph(parsedData) {
           const resolved = resolveJsImport(dep, fromDir);
           if (resolved && resolved !== dep) dep = resolved;
         }
-      } catch {}
+      } catch (e) {
+        logger.debug('Builder', `Import resolution failed for "${dep}" in ${data.id}: ${e.message}`);
+      }
       let target = null;
 
       if (isRelative(dep)) {
