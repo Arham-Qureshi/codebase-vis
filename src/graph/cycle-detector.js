@@ -23,41 +23,57 @@ export function detectCycles(graph) {
   });
 
   const fileSet = new Set(fileNodes);
-  const visited = new Set();
-  const pathStack = [];
-  const stackSet = new Set();
   const cycles = new Map();
+  const globalVisited = new Set();
 
-  function dfs(node) {
-    visited.add(node);
-    pathStack.push(node);
-    stackSet.add(node);
+  function dfs(start) {
+    const stack = [{ node: start, neighbors: null }];
+    const onStack = new Set([start]);
 
-    graph.forEachOutNeighbor(node, (neighbor) => {
-      if (!fileSet.has(neighbor)) return;
-      if (cycles.size >= MAX_CYCLES) return;
+    while (stack.length > 0) {
+      const frame = stack[stack.length - 1];
 
-      if (stackSet.has(neighbor)) {
-        const idx = pathStack.indexOf(neighbor);
-        const cyclePath = pathStack.slice(idx);
-        const key = canonicalKey(cyclePath);
-        if (!cycles.has(key)) {
-          cycles.set(key, [...cyclePath, neighbor]);
-        }
-      } else if (!visited.has(neighbor)) {
-        dfs(neighbor);
+      if (frame.neighbors === null) {
+        // First visit: collect neighbors
+        globalVisited.add(frame.node);
+        const neighbors = [];
+        graph.forEachOutNeighbor(frame.node, (neighbor) => {
+          if (fileSet.has(neighbor)) neighbors.push(neighbor);
+        });
+        frame.neighbors = neighbors;
+        frame.idx = 0;
       }
-    });
 
-    pathStack.pop();
-    stackSet.delete(node);
+      if (frame.idx >= frame.neighbors.length) {
+        // Done with this node
+        stack.pop();
+        onStack.delete(frame.node);
+        continue;
+      }
+
+      const neighbor = frame.neighbors[frame.idx++];
+
+      if (onStack.has(neighbor)) {
+        // Found a cycle
+        if (cycles.size >= MAX_CYCLES) return;
+        const cyclePath = [];
+        for (const f of stack) cyclePath.push(f.node);
+        const idx = cyclePath.indexOf(neighbor);
+        const cycle = cyclePath.slice(idx);
+        const key = canonicalKey(cycle);
+        if (!cycles.has(key)) {
+          cycles.set(key, [...cycle, neighbor]);
+        }
+      } else if (!globalVisited.has(neighbor)) {
+        stack.push({ node: neighbor, neighbors: null });
+        onStack.add(neighbor);
+      }
+    }
   }
 
   for (const node of fileNodes) {
-    if (!visited.has(node)) {
-      dfs(node);
-      if (cycles.size >= MAX_CYCLES) break;
-    }
+    if (cycles.size >= MAX_CYCLES) break;
+    dfs(node);
   }
 
   return Array.from(cycles.values());
