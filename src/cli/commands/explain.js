@@ -225,6 +225,9 @@ function extractPayload(graph, batch) {
 }
 
 async function callLLM(apiKey, model, payload) {
+  // Allowlist: api.groq.com only (intentional user-initiated egress via `explain` command)
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), 30000);
   const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -240,7 +243,10 @@ async function callLLM(apiKey, model, payload) {
       temperature: 0.3,
       max_tokens: 1024,
     }),
+    signal: controller.signal,
+    redirect: 'error',
   });
+  clearTimeout(t);
 
   if (response.status === 429) {
     const err = new Error('Rate limited');
