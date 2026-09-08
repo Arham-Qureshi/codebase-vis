@@ -20,7 +20,7 @@ export async function loadCache(outDir) {
         if (!entry || typeof entry !== 'object' ||
             typeof entry.mtime !== 'number' ||
             typeof entry.size !== 'number' ||
-            (entry.data !== undefined && (entry.data === null || typeof entry.data !== 'object'))) {
+            (entry.data !== undefined && entry.data !== null && typeof entry.data !== 'object')) {
           delete files[filePath];
           invalidCount++;
         } else {
