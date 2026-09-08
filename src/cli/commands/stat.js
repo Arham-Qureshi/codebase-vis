@@ -557,13 +557,25 @@ export async function statCommand(target, options = {}) {
     const output = JSON.stringify(stats, null, 2);
     if (out) {
       const outPath = path.resolve(process.cwd(), out);
+      let sandboxReal;
+      try {
+        sandboxReal = await fs.realpath(process.cwd()) + path.sep;
+      } catch {
+        sandboxReal = process.cwd() + path.sep;
+      }
+      const realDir = await fs.realpath(path.dirname(outPath)).catch(() => path.dirname(outPath));
+      const realTarget = path.join(realDir, path.basename(outPath));
+      if (!realTarget.startsWith(sandboxReal)) {
+        p.log.error(pc.red('--out path must be inside the current directory (symlink blocked).'));
+        return;
+      }
       if (path.relative(process.cwd(), outPath).startsWith('..')) {
         p.log.error(pc.red('--out path must be inside the current directory.'));
         if (!isJson) p.outro(pc.dim('Write blocked.'));
         return;
       }
       await fs.mkdir(path.dirname(outPath), { recursive: true });
-      await fs.writeFile(outPath, output, 'utf-8');
+      await fs.writeFile(outPath, output, { encoding: 'utf-8', mode: 0o600 });
     } else {
       console.log(output);
     }
