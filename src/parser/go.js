@@ -5,6 +5,7 @@ export const grammar = Go;
 
 const DEPENDENCY_QUERY = `
 (import_spec path: (interpreted_string_literal) @import_path)
+(import_spec path: (raw_string_literal) @import_path)
 `;
 
 const ENTITY_QUERY = `
@@ -17,7 +18,7 @@ export function extractDependencies(astRoot) {
   try {
     const query = new Parser.Query(grammar, DEPENDENCY_QUERY);
     const captures = query.captures(astRoot);
-    return captures.map(c => c.node.text.replace(/^"|"$/g, ''));
+    return captures.map(c => c.node.text.replace(/^["`]|["`]$/g, ''));
   } catch {
     return [];
   }

@@ -10,6 +10,7 @@ const DEPENDENCY_QUERY = `
 
 const ENTITY_QUERY = `
 (class_specifier name: (type_identifier) @class_name)
+(struct_specifier name: (type_identifier) @class_name)
 (function_definition declarator: (function_declarator declarator: (identifier) @func_name))
 (namespace_definition name: (namespace_identifier) @ns_name)
 `;
@@ -73,8 +74,18 @@ export function extractEntities(astRoot) {
       .map(c => c.node.text)
       .filter(t => t.startsWith('/**') || t.startsWith('/*') || t.startsWith('//'));
 
-    return { classes, functions, methods, docstrings };
+    let inherits = [];
+    try {
+      const baseQuery = new Parser.Query(grammar, `
+        (base_class_clause (type_identifier) @base)
+        (base_class_clause (qualified_identifier name: (type_identifier) @base))
+        (base_class_clause (template_type name: (type_identifier) @base))
+      `);
+      inherits = [...new Set(baseQuery.captures(astRoot).filter(c=>c.name==='base').map(c=>c.node.text))];
+    } catch {}
+
+    return { classes, functions, methods, docstrings, inherits };
   } catch {
-    return { classes: [], functions: [], methods: [], docstrings: [] };
+    return { classes: [], functions: [], methods: [], docstrings: [], inherits: [] };
   }
 }

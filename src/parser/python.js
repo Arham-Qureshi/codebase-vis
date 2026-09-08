@@ -64,7 +64,7 @@ export function extractEntities(astRoot) {
 
     const docQuery = new Parser.Query(grammar, DOCSTRING_QUERY);
     const docCaptures = docQuery.captures(astRoot);
-    const docstrings = docCaptures.map(c => c.node.text);
+    const docstrings = docCaptures.map(c => c.node.text).filter(t => t.startsWith('"""') || t.startsWith("'''") || t.startsWith('\"\"\"') || t.includes('\n'));
 
     return { classes, functions, methods, docstrings };
   } catch {

@@ -108,6 +108,10 @@ program.configureHelp({
             ['--no-clear', 'Skip clearing the terminal'],
             ['--verbose', 'Show per-file parse errors'],
             ['--jobs <number>', 'Parallel workers (default: CPU count - 1, max: CPU count)'],
+            ['--exclude-tests', 'Exclude test/ from 99% whole-repo graph'],
+            ['--exclude-docs', 'Exclude markdown docs'],
+            ['--exclude-dummy', 'Exclude dummy-polyglot fixture'],
+            ['--exclude-images', 'Exclude images'],
           ]
         },
         { name: 'clean', syntax: 'clean', desc: 'Remove the generated codebase-out/ directory', use: 'Start fresh or free up disk space' },
@@ -204,6 +208,10 @@ program
   .option('--no-clear', 'Skip clearing the terminal')
   .option('--verbose', 'Show detailed per-file parse errors')
   .option('--jobs <number>', 'Number of parallel parse workers (default: CPU count - 1, max: CPU count)')
+  .option('--exclude-tests', 'Exclude test/ directory')
+  .option('--exclude-docs', 'Exclude markdown docs')
+  .option('--exclude-dummy', 'Exclude dummy-polyglot fixture')
+  .option('--exclude-images', 'Exclude image assets')
   .action(generateCommand);
 
 program

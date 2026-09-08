@@ -6,11 +6,9 @@
   <meta name="color-scheme" content="dark light" />
   <meta name="theme-color" content="#0b0b0f" />
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src https://fonts.gstatic.com;">
+        content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src https://fonts.gstatic.com;">
   <title>codebase-vis | Codebase Graph</title>
-  <script src="https://unpkg.com/vis-network@10.1.0/standalone/umd/vis-network.min.js"
-          integrity="sha384-Kp7cMaDnHOrgpE8FT6l7tUuGIo7kBcBVcttockpXN/whrsQBcy9ZcpKmr/1a/nMo"
-          crossorigin="anonymous"></script>
+  <script src="./vendor/d3.v7.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <script>
@@ -59,6 +57,7 @@
   <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
   <div id="blank-guard" role="alert" aria-live="assertive" style="display:none"><span>No nodes visible — </span><button type="button" class="ghost-btn" id="btn-reset-from-blank">Reset filters</button></div>
   <div id="graph-container" role="main" aria-label="Dependency graph">
+    <canvas id="graph-canvas"></canvas>
     <div id="loading-overlay" role="status" aria-live="polite">
       <svg class="graph-spinner" viewBox="0 0 80 80" aria-hidden="true">
         <g stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
@@ -80,7 +79,7 @@
         </g>
       </svg>
       <span>Computing layout…</span>
-      <span class="loading-sub">forceAtlas2 · 300 iterations</span>
+      <span class="loading-sub">forceAtlas2 · 150 iterations · park to settle</span>
     </div>
   </div>
 

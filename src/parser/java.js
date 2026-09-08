@@ -11,6 +11,7 @@ const DEPENDENCY_QUERY = `
 const ENTITY_QUERY = `
 (class_declaration name: (identifier) @class_name)
 (interface_declaration name: (identifier) @class_name)
+(enum_declaration name: (identifier) @class_name)
 (method_declaration name: (identifier) @func_name)
 (constructor_declaration name: (identifier) @func_name)
 `;
@@ -39,7 +40,12 @@ export function extractEntities(astRoot) {
   try {
     const query = new Parser.Query(grammar, ENTITY_QUERY);
     const captures = query.captures(astRoot);
-    const classes = captures.filter(c => c.name === 'class_name').map(c => c.node.text);
+    let classes = captures.filter(c => c.name === 'class_name').map(c => c.node.text);
+    try {
+      const recQuery = new Parser.Query(grammar, `(record_declaration name: (identifier) @class_name)`);
+      const recs = recQuery.captures(astRoot).filter(c=>c.name==='class_name').map(c=>c.node.text);
+      classes = [...new Set([...classes, ...recs])];
+    } catch {}
 
     const methodQuery = new Parser.Query(grammar, METHOD_QUERY);
     const methodCaptures = methodQuery.captures(astRoot);

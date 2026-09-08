@@ -132,6 +132,9 @@
       background-size:32px 32px, 100% 200px;
       background-position:0 0, 0 0;
     }
+    #graph-canvas{
+      position:absolute;inset:0;width:100%;height:100%;display:block;
+    }
     #loading-overlay{
       position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
       background:var(--overlay);z-index:5;transition:opacity .5s ease;

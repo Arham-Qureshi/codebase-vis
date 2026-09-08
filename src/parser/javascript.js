@@ -4,16 +4,34 @@ import Parser from 'tree-sitter';
 // language grammar for .js and .jsx files
 export const grammar = JavaScript;
 
-// capturing import/require/dynamic-import paths
+// capturing import/require/dynamic-import paths + re-exports + side-effect imports
 const DEPENDENCY_QUERY = `
 (import_statement source: (string (string_fragment) @import_path))
+(import_statement source: (string) @import_path)
+(export_statement source: (string (string_fragment) @import_path))
+(export_statement source: (string) @import_path)
 (call_expression
   function: (identifier) @_func_name
   arguments: (arguments (string (string_fragment) @require_path))
   (#eq? @_func_name "require"))
 (call_expression
+  function: (identifier) @_func_name
+  arguments: (arguments (string) @require_path)
+  (#eq? @_func_name "require"))
+(call_expression
+  function: (member_expression object: (identifier) @_obj property: (property_identifier) @_prop)
+  arguments: (arguments (string (string_fragment) @import_path))
+  (#eq? @_obj "require") (#eq? @_prop "resolve"))
+(call_expression
+  function: (member_expression object: (identifier) @_obj property: (property_identifier) @_prop)
+  arguments: (arguments (string) @import_path)
+  (#eq? @_obj "require") (#eq? @_prop "resolve"))
+(call_expression
   function: (import)
   arguments: (arguments (string (string_fragment) @dyn_import_path)))
+(call_expression
+  function: (import)
+  arguments: (arguments (string) @dyn_import_path))
 `;
 
 // capturing classes, functions, and arrow fns
@@ -37,15 +55,17 @@ const DOCSTRING_QUERY = `
 (comment) @doc
 `;
 
+function stripQuotes(s) { return s.replace(/^['"`]|['"`]$/g, ''); }
+
 // extracts all dependency paths
 export function extractDependencies(astRoot) {
   try {
     const query = new Parser.Query(grammar, DEPENDENCY_QUERY);
     const captures = query.captures(astRoot);
-
-    return captures
-      .filter(c => c.name !== '_func_name')
-      .map(c => c.node.text);
+    const raw = captures
+      .filter(c => !c.name.startsWith('_'))
+      .map(c => stripQuotes(c.node.text));
+    return [...new Set(raw.filter(Boolean))];
   } catch {
     return [];
   }

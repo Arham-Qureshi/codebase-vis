@@ -3,6 +3,7 @@ import pc from 'picocolors';
 import path from 'node:path';
 import os from 'node:os';
 import fs from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 import ignore from 'ignore';
 import { createOutDir, safeWriteFile } from '../../utils/file-system.js';
 import { discoverFiles } from '../../utils/traversal.js';
@@ -50,6 +51,14 @@ export async function generateCommand(paths = [], options = {}) {
 
   s.start('Setting up output directory');
   const outDir = await createOutDir();
+  try {
+    const templateDir = path.dirname(fileURLToPath(import.meta.url));
+    const vendorSrc = path.join(templateDir, '..', '..', 'templates', 'graph', 'vendor', 'd3.v7.min.js');
+    const vendorDstDir = path.join(outDir, 'vendor');
+    await fs.mkdir(vendorDstDir, { recursive: true });
+    const buf = await fs.readFile(vendorSrc);
+    await fs.writeFile(path.join(vendorDstDir, 'd3.v7.min.js'), buf);
+  } catch {}
   s.stop(pc.green(`Output directory ready at ${pc.bold(outDir)}`));
 
   s.start('Detecting tech stack...');
@@ -64,7 +73,13 @@ export async function generateCommand(paths = [], options = {}) {
     ? options.ignore.split(',').map(s => s.trim())
     : [];
 
-  const ig = ignore().add([...agentignorePatterns, ...cliIgnores]);
+  const extraExcludes = [];
+  if (options.excludeTests) extraExcludes.push('test/**');
+  if (options.excludeDocs) extraExcludes.push('**/*.md', '**/*.mdx', 'docs/**');
+  if (options.excludeDummy) extraExcludes.push('dummy-polyglot/**');
+  if (options.excludeImages) extraExcludes.push('**/*.png','**/*.jpg','**/*.jpeg','**/*.gif','**/*.svg','**/*.ico','**/*.webp');
+
+  const ig = ignore().add([...agentignorePatterns, ...extraExcludes, ...cliIgnores]);
 
   s.start('Discovering files...');
   const files = [];

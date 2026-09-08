@@ -48,6 +48,7 @@
     "graphology-communities-louvain": "^2.0.2",
     "ignore": "^7.0.6",
     "picocolors": "^1.1.1",
+    "vis-network": "^10.1.0",
     "tree-sitter": "^0.21.1",
     "tree-sitter-cpp": "^0.21.0",
     "tree-sitter-css": "^0.21.1",

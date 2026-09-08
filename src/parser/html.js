@@ -25,7 +25,18 @@ const SCRIPT_DEP_QUERY = `
     (#eq? @_attr "src")))
 `;
 
-export function extractDependencies(astRoot) {
+const NAV_DEP_QUERY = `
+(element
+  (start_tag
+    (tag_name) @_tag
+    (attribute
+      (attribute_name) @_attr
+      (quoted_attribute_value (attribute_value) @path))
+    (#match? @_tag "^(a|form|video|audio|source|iframe)$")
+    (#match? @_attr "^(href|src|action|poster|data-src)$")))
+`;
+
+export function extractDependencies(astRoot, _grammar, includeNav = false) {
   try {
     const elementQuery = new Parser.Query(grammar, ELEMENT_DEP_QUERY);
     const scriptQuery = new Parser.Query(grammar, SCRIPT_DEP_QUERY);
@@ -38,7 +49,13 @@ export function extractDependencies(astRoot) {
       .filter(c => c.name === 'path')
       .map(c => c.node.text);
 
-    return [...elementPaths, ...scriptPaths];
+    let navPaths = [];
+    if (includeNav) {
+      const navQuery = new Parser.Query(grammar, NAV_DEP_QUERY);
+      navPaths = navQuery.captures(astRoot).filter(c => c.name === 'path').map(c => c.node.text);
+    }
+
+    return [...elementPaths, ...scriptPaths, ...navPaths];
   } catch {
     return [];
   }
