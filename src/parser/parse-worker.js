@@ -10,6 +10,9 @@ import { grammar as cssGrammar, extractDependencies as cssExtractDeps, extractEn
 import { grammar as rustGrammar, extractDependencies as rustExtractDeps, extractEntities as rustExtractEnts } from './rust.js';
 import { grammar as goGrammar, extractDependencies as goExtractDeps, extractEntities as goExtractEnts } from './go.js';
 import { grammar as javaGrammar, extractDependencies as javaExtractDeps, extractEntities as javaExtractEnts } from './java.js';
+import { extractDependencies as mdExtractDeps, extractEntities as mdExtractEnts } from './markdown.js';
+import { extractDependencies as jsonExtractDeps, extractEntities as jsonExtractEnts } from './json.js';
+import { extractDependencies as imgExtractDeps, extractEntities as imgExtractEnts } from './image.js';
 
 const GRAMMAR_MAP = {
   '.js': { grammar: jsGrammar, extractDeps: jsExtractDeps, extractEnts: jsExtractEnts },
@@ -25,6 +28,16 @@ const GRAMMAR_MAP = {
   '.rs': { grammar: rustGrammar, extractDeps: rustExtractDeps, extractEnts: rustExtractEnts },
   '.go': { grammar: goGrammar, extractDeps: goExtractDeps, extractEnts: goExtractEnts },
   '.java': { grammar: javaGrammar, extractDeps: javaExtractDeps, extractEnts: javaExtractEnts },
+  '.md': { grammar: null, extractDeps: mdExtractDeps, extractEnts: mdExtractEnts },
+  '.mdx': { grammar: null, extractDeps: mdExtractDeps, extractEnts: mdExtractEnts },
+  '.json': { grammar: null, extractDeps: jsonExtractDeps, extractEnts: jsonExtractEnts },
+  '.png': { grammar: null, extractDeps: imgExtractDeps, extractEnts: imgExtractEnts },
+  '.jpg': { grammar: null, extractDeps: imgExtractDeps, extractEnts: imgExtractEnts },
+  '.jpeg': { grammar: null, extractDeps: imgExtractDeps, extractEnts: imgExtractEnts },
+  '.gif': { grammar: null, extractDeps: imgExtractDeps, extractEnts: imgExtractEnts },
+  '.svg': { grammar: null, extractDeps: imgExtractDeps, extractEnts: imgExtractEnts },
+  '.ico': { grammar: null, extractDeps: imgExtractDeps, extractEnts: imgExtractEnts },
+  '.webp': { grammar: null, extractDeps: imgExtractDeps, extractEnts: imgExtractEnts },
 };
 
 const parserCache = new Map();
@@ -32,6 +45,7 @@ const parserCache = new Map();
 function getParser(ext) {
   const config = GRAMMAR_MAP[ext];
   if (!config) return null;
+  if (config.grammar === null) return { parser: null, config };
   if (!parserCache.has(ext)) {
     const parser = new Parser();
     parser.setLanguage(config.grammar);
@@ -47,10 +61,18 @@ async function parseFile(filePath) {
   const entry = getParser(ext);
   if (!entry) return null;
   const { parser, config } = entry;
-  const tree = parser.parse(content);
-  const rootNode = tree.rootNode;
-  const dependencies = config.extractDeps(rootNode, config.grammar);
-  const entities = config.extractEnts(rootNode, config.grammar);
+  let dependencies;
+  let entities;
+  if (config.grammar === null) {
+    const fakeRoot = { text: content };
+    dependencies = config.extractDeps(fakeRoot, config.grammar);
+    entities = config.extractEnts(fakeRoot, config.grammar);
+  } else {
+    const tree = parser.parse(content);
+    const rootNode = tree.rootNode;
+    dependencies = config.extractDeps(rootNode, config.grammar);
+    entities = config.extractEnts(rootNode, config.grammar);
+  }
   const relPath = path.relative(process.cwd(), filePath);
   return { id: relPath, dependencies: dependencies || [], entities: entities || [] };
 }
