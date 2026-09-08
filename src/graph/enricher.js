@@ -138,14 +138,19 @@ export function enrichNodes(graph) {
     }
   }
 
-  // ── 7. Apply attributes to every node ──
+  // ── 7. Apply attributes to every node (deterministic spiral to avoid jiggle) ──
+  const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
+  let spiralIdx = 0;
   graph.forEachNode((node, attributes) => {
+    const r = Math.sqrt(spiralIdx) * 12;
+    const theta = spiralIdx * GOLDEN_ANGLE;
     const baseAttrs = {
-      x: Math.random() * 100,
-      y: Math.random() * 100,
+      x: Math.cos(theta) * r,
+      y: Math.sin(theta) * r,
       size: Math.max(5, Math.min(15, graph.degree(node))),
       label: attributes.label || path.basename(node),
     };
+    spiralIdx++;
     setAttrs(graph, node, baseAttrs);
 
     // External packages
