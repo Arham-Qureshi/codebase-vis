@@ -32,19 +32,24 @@ export async function serveCommand(options = {}) {
     return;
   }
 
+  function sanitizeLog(v) {
+    return String(v).replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/[\x00-\x1f\x7f-\x9f]/g, '');
+  }
+
   const server = http.createServer(async (req, res) => {
     const startTime = Date.now();
-    const urlPath = req.url === '/' ? '/graph.html' : req.url;
+    const rawUrl = req.url || '/';
+    const urlPath = rawUrl === '/' ? '/graph.html' : rawUrl.split('?')[0].split('#')[0];
     const clientIp = req.socket.remoteAddress;
 
-    logger.debug('HTTP', `Request — ${req.method} ${urlPath} from ${clientIp}`);
+    logger.debug('HTTP', `Request — ${sanitizeLog(req.method)} ${sanitizeLog(urlPath)} from ${sanitizeLog(clientIp)}`);
 
     const resolvedPath = path.resolve(outDir, '.' + urlPath);
     if (path.relative(outDir, resolvedPath).startsWith('..')) {
-      logger.warn('HTTP', `Path traversal blocked — urlPath=${urlPath}, resolved=${path.relative(process.cwd(), resolvedPath)}, clientIp=${clientIp}`);
+      logger.warn('HTTP', `Path traversal blocked — urlPath=${sanitizeLog(urlPath)}, resolved=${sanitizeLog(path.relative(process.cwd(), resolvedPath))}, clientIp=${sanitizeLog(clientIp)}`);
       res.writeHead(403, { 'Content-Type': 'text/plain' });
       res.end('Forbidden');
-      logger.info('HTTP', `Response — 403 ${urlPath} from ${clientIp} (${Date.now() - startTime}ms)`);
+      logger.info('HTTP', `Response — 403 ${sanitizeLog(urlPath)} from ${sanitizeLog(clientIp)} (${Date.now() - startTime}ms)`);
       return;
     }
 
@@ -54,14 +59,19 @@ export async function serveCommand(options = {}) {
     try {
       const data = await fs.readFile(resolvedPath);
       const sizeKb = Math.round(data.length / 1024);
-      res.writeHead(200, { 'Content-Type': contentType });
+      res.writeHead(200, {
+        'Content-Type': contentType,
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY',
+        'Cache-Control': 'no-store',
+      });
       res.end(data);
-      logger.info('HTTP', `Response — 200 ${urlPath} (${contentType}, ${sizeKb}KB) from ${clientIp} (${Date.now() - startTime}ms)`);
+      logger.info('HTTP', `Response — 200 ${sanitizeLog(urlPath)} (${contentType}, ${sizeKb}KB) from ${sanitizeLog(clientIp)} (${Date.now() - startTime}ms)`);
     } catch {
-      logger.debug('HTTP', `File not found — ${path.relative(process.cwd(), resolvedPath)}`);
+      logger.debug('HTTP', `File not found — ${sanitizeLog(path.relative(process.cwd(), resolvedPath))}`);
       res.writeHead(404, { 'Content-Type': 'text/plain' });
       res.end('404 Not Found');
-      logger.info('HTTP', `Response — 404 ${urlPath} from ${clientIp} (${Date.now() - startTime}ms)`);
+      logger.info('HTTP', `Response — 404 ${sanitizeLog(urlPath)} from ${sanitizeLog(clientIp)} (${Date.now() - startTime}ms)`);
     }
   });
 
@@ -78,8 +88,9 @@ export async function serveCommand(options = {}) {
     }
   });
 
-  server.listen(port, () => {
-    const url = `http://localhost:${port}`;
+  const host = process.env.CODEBASE_VIS_HOST || '127.0.0.1';
+  server.listen(port, host, () => {
+    const url = `http://${host}:${port}`;
     logger.info('Serve', `Server listening on ${url} — maxConnections=128, timeout=30s`);
     p.log.success(pc.green(`Server running at ${pc.bold(url)}`));
     p.log.info(pc.dim('Press Ctrl+C to stop the server.'));
