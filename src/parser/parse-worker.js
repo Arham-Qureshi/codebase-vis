@@ -78,6 +78,10 @@ async function parseFile(filePath) {
 }
 
 process.on('message', async (msg) => {
+  if (typeof msg !== 'string') {
+    process.send({ id: 'unknown', error: true });
+    return;
+  }
   try {
     const result = await parseFile(msg);
     const id = result ? result.id : path.relative(process.cwd(), msg);

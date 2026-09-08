@@ -52,12 +52,13 @@ test('loadGraph returns loaded graph when graph.json exists', async () => {
   assert.equal(loaded.size, 1);
 });
 
-test('loadGraph throws on corrupted graph.json', async () => {
+test('loadGraph returns null on corrupted graph.json', async () => {
   const { loadGraph } = await import('../../src/cli/shared.js');
   const outDir = path.join(process.cwd(), 'codebase-out');
   await fs.mkdir(outDir, { recursive: true });
   await fs.writeFile(path.join(outDir, 'graph.json'), 'not-json', 'utf-8');
-  await assert.rejects(() => loadGraph());
+  const result = await loadGraph();
+  assert.equal(result, null);
 });
 
 test('resolveNode finds exact match first', async () => {

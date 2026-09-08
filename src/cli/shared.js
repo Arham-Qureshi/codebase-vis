@@ -27,8 +27,20 @@ export async function loadGraph() {
     return null;
   }
   const raw = await fs.readFile(graphPath, 'utf-8');
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    p.log.error(pc.red('graph.json is corrupted. Run codebase-vis generate to regenerate.'));
+    return null;
+  }
   const graph = new Graph({ multi: true, directed: true });
-  graph.import(JSON.parse(raw));
+  try {
+    graph.import(parsed);
+  } catch {
+    p.log.error(pc.red('graph.json has invalid structure. Run codebase-vis generate to regenerate.'));
+    return null;
+  }
   return graph;
 }
 

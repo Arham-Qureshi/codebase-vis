@@ -90,7 +90,7 @@ export async function parseFile(filePath) {
 
 export async function parseFileBatch(files, onProgress, jobs) {
   const cpuCores = os.cpus().length;
-  const maxWorkers = Math.max(cpuCores, 4);
+  const maxWorkers = Math.min(cpuCores, 8);
   const requested = jobs ?? Math.max(1, cpuCores - 1);
   const numWorkers = Math.min(requested, maxWorkers);
   if (requested !== numWorkers) {

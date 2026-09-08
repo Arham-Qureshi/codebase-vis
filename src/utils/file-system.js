@@ -18,12 +18,9 @@ export async function createOutDir() {
 
 export async function safeWriteFile(targetPath, data) {
   const resolvedTarget = path.resolve(targetPath);
-  let sandboxRoot;
-  try {
-    sandboxRoot = await fs.realpath(getOutDirPath()) + path.sep;
-  } catch {
-    sandboxRoot = getOutDirPath() + path.sep;
-  }
+  const outDir = getOutDirPath();
+  const resolvedOutDir = await fs.realpath(outDir).catch(() => outDir);
+  const sandboxRoot = resolvedOutDir + path.sep;
 
   if (!resolvedTarget.startsWith(sandboxRoot)) {
     const relTarget = path.relative(process.cwd(), resolvedTarget);

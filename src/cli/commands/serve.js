@@ -42,6 +42,12 @@ export async function serveCommand(options = {}) {
     const urlPath = rawUrl === '/' ? '/graph.html' : rawUrl.split('?')[0].split('#')[0];
     const clientIp = req.socket.remoteAddress;
 
+    if (urlPath.length > 2048) {
+      res.writeHead(414, { 'Content-Type': 'text/plain' });
+      res.end('URI Too Long');
+      return;
+    }
+
     logger.debug('HTTP', `Request — ${sanitizeLog(req.method)} ${sanitizeLog(urlPath)} from ${sanitizeLog(clientIp)}`);
 
     const resolvedPath = path.resolve(outDir, '.' + urlPath);
@@ -89,6 +95,9 @@ export async function serveCommand(options = {}) {
   });
 
   const host = process.env.CODEBASE_VIS_HOST || '127.0.0.1';
+  if (host !== '127.0.0.1' && host !== 'localhost') {
+    logger.warn('Serve', `Binding to non-localhost address "${host}" — server will be accessible to other devices on the network`);
+  }
   server.listen(port, host, () => {
     const url = `http://${host}:${port}`;
     logger.info('Serve', `Server listening on ${url} — maxConnections=128, timeout=30s`);
