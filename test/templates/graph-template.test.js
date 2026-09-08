@@ -21,8 +21,8 @@ test('getHtmlTemplate caches and returns same reference on second call', async (
   assert.equal(first, second);
 });
 
-test('getHtmlTemplate contains vis-network integration code', async () => {
+test('getHtmlTemplate contains D3 integration code', async () => {
   const { getHtmlTemplate } = await import('../../src/templates/graph-template.js');
   const html = await getHtmlTemplate();
-  assert.ok(html.includes('vis-network') || html.includes('Network'));
+  assert.ok(html.includes('d3') || html.includes('D3') || html.includes('graph-canvas'));
 });
