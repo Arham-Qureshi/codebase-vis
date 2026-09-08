@@ -55,6 +55,24 @@ export const LANGUAGES = {
     color: '#b07219',
     ignores: ['build', '.gradle', 'target'],
   },
+  Markdown: {
+    extensions: ['.md', '.mdx'],
+    parser: 'markdown',
+    color: '#083fa1',
+    ignores: [],
+  },
+  JSON: {
+    extensions: ['.json'],
+    parser: 'json',
+    color: '#292929',
+    ignores: [],
+  },
+  Image: {
+    extensions: ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico', '.webp'],
+    parser: 'image',
+    color: '#E34A33',
+    ignores: [],
+  },
 };
 
 export const EXT_TO_LANGUAGE = {};
