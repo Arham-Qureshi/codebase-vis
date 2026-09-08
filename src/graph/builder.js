@@ -2,6 +2,7 @@ import Graph from 'graphology';
 import path from 'node:path';
 import fs from 'node:fs';
 import { enrichNodes } from './enricher.js';
+import { resolveJsImport } from '../parser/resolver.js';
 
 const MAX_NODES = 500000;
 
@@ -74,6 +75,13 @@ export function buildGraph(parsedData) {
       if (entities.docstrings && entities.docstrings.length > 0) {
         graph.setNodeAttribute(data.id, 'docstrings', entities.docstrings);
       }
+      if (entities.inherits && entities.inherits.length > 0) {
+        for (const base of [...new Set(entities.inherits)]) {
+          const safe = sanitizeName(base);
+          graph.mergeNode(safe, { external: true, label: safe });
+          graph.addEdge(data.id, safe, { relationship: 'inherits' });
+        }
+      }
     } else {
       for (const entity of [...new Set(entities || [])]) {
         const safe = sanitizeName(entity);
@@ -84,9 +92,16 @@ export function buildGraph(parsedData) {
     }
   }
 
-  // Resolve dependencies
+  // Resolve dependencies (with JS alias/file resolution)
   for (const data of parsedData) {
-    for (const dep of data.dependencies) {
+    const fromDir = path.dirname(path.resolve(process.cwd(), data.id));
+    for (let dep of data.dependencies) {
+      try {
+        if (/\.(js|jsx|ts|tsx|mjs)$/.test(data.id) || dep.startsWith('@/') || dep.startsWith('.')) {
+          const resolved = resolveJsImport(dep, fromDir);
+          if (resolved && resolved !== dep) dep = resolved;
+        }
+      } catch {}
       let target = null;
 
       if (isRelative(dep)) {
