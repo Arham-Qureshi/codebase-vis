@@ -107,7 +107,7 @@ export async function buildUpdatedCache(oldCache, toParseFiles, parsedResults, s
   const beforeCount = Object.keys(oldCache).length;
   logger.debug('Cache', `Building updated cache — ${beforeCount} existing, ${toParseFiles.length} to parse, ${stalePaths.length} stale to remove`);
 
-  const updated = oldCache;
+  const updated = { ...oldCache };
 
   for (const filePath of stalePaths) {
     delete updated[filePath];
