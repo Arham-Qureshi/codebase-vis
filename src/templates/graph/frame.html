@@ -1,33 +1,77 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="dark light" />
+  <meta name="theme-color" content="#0b0b0f" />
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline';">
+        content="default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src https://fonts.gstatic.com;">
   <title>codebase-vis | Codebase Graph</title>
   <script src="https://unpkg.com/vis-network@10.1.0/standalone/umd/vis-network.min.js"
           integrity="sha384-Kp7cMaDnHOrgpE8FT6l7tUuGIo7kBcBVcttockpXN/whrsQBcy9ZcpKmr/1a/nMo"
           crossorigin="anonymous"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <script>
+    (function(){
+      try {
+        var k='codebase-vis:theme';
+        var v=localStorage.getItem(k);
+        if(!v){
+          v = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        }
+        if(v==='light') document.documentElement.setAttribute('data-theme','light');
+        else document.documentElement.removeAttribute('data-theme');
+        document.documentElement.style.colorScheme = v==='light' ? 'light' : 'dark';
+      } catch(e){}
+    })();
+  </script>
   <!-- CSS -->
 </head>
-
 <body>
-  <div id="graph-container">
-    <div id="loading-overlay">
-      <svg class="graph-spinner" viewBox="0 0 80 80">
-        <g stroke="#4E79A7" stroke-width="1.5" stroke-linecap="round">
+  <a href="#graph-container" class="skip-link">Skip to graph</a>
+  <header id="toolbar" role="banner" aria-label="Graph controls">
+    <div class="toolbar-left">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-name">codebase-vis</span>
+        <span class="brand-sub">graph</span>
+      </div>
+      <button class="tb-btn" id="btn-menu" type="button" aria-label="Toggle inspector" aria-expanded="false" title="Toggle inspector" style="display:none">☰</button>
+      <div class="toolbar-divider" aria-hidden="true"></div>
+      <button class="tb-btn" id="btn-fit" type="button" aria-label="Fit graph" title="Fit graph to viewport — centers all nodes"><span class="tb-icon" aria-hidden="true">◧</span> Fit</button>
+      <button class="tb-btn" id="btn-reheat" type="button" aria-label="Reheat layout" title="Reheat forces — jiggles layout when graph settles crowded"><span class="tb-icon" aria-hidden="true">◎</span> Reheat</button>
+      <label class="tb-search" aria-label="Search nodes"><span class="tb-icon" aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Search nodes · ⌘K" autocomplete="off" spellcheck="false"><button id="search-clear" type="button" aria-label="Clear search">×</button></label>
+    </div>
+    <div class="toolbar-right">
+      <div id="search-results" role="listbox" aria-label="Search results"></div>
+      <div class="theme-toggle" role="group" aria-label="Theme">
+        <button type="button" data-theme-val="dark" aria-pressed="true" title="Dark">Dark</button>
+        <button type="button" data-theme-val="light" aria-pressed="false" title="Light">Light</button>
+        <button type="button" data-theme-val="auto" aria-pressed="false" title="Auto">Auto</button>
+      </div>
+      <span id="graph-meta" class="toolbar-meta" aria-live="polite"></span>
+    </div>
+  </header>
+
+  <div id="graph-legend-key" aria-hidden="true"><span>● size = degree</span><span>— color = module</span><span>╌ = contains</span></div>
+  <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+  <div id="blank-guard" role="alert" aria-live="assertive" style="display:none"><span>No nodes visible — </span><button type="button" class="ghost-btn" id="btn-reset-from-blank">Reset filters</button></div>
+  <div id="graph-container" role="main" aria-label="Dependency graph">
+    <div id="loading-overlay" role="status" aria-live="polite">
+      <svg class="graph-spinner" viewBox="0 0 80 80" aria-hidden="true">
+        <g stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
           <line class="e0" x1="40" y1="12" x2="66" y2="31" />
           <line class="e1" x1="66" y1="31" x2="56" y2="60" />
-          <line class="e2" x1="56" y1="60" x2="24" y2="60" />
+          <line class="e2" x1="56" y2="60" x2="24" y2="60" />
           <line class="e3" x1="24" y1="60" x2="14" y2="31" />
           <line class="e4" x1="14" y1="31" x2="40" y2="12" />
           <line class="e5" x1="40" y1="12" x2="56" y2="60" />
           <line class="e6" x1="40" y1="12" x2="24" y2="60" />
           <line class="e7" x1="66" y1="31" x2="24" y2="60" />
         </g>
-        <g fill="#4E79A7">
+        <g fill="currentColor">
           <circle class="node n0" cx="40" cy="12" r="4" />
           <circle class="node n1" cx="66" cy="31" r="4" />
           <circle class="node n2" cx="56" cy="60" r="4" />
@@ -35,53 +79,55 @@
           <circle class="node n4" cx="14" cy="31" r="4" />
         </g>
       </svg>
-      <span>Computing layout&hellip;</span>
+      <span>Computing layout…</span>
+      <span class="loading-sub">forceAtlas2 · 300 iterations</span>
     </div>
   </div>
 
-    <div id="minimap-wrap" class="minimap-hidden">
-    <canvas id="minimap"></canvas>
-    <div id="minimap-hint">Press <kbd>M</kbd></div>
+  <div id="minimap-wrap">
+    <canvas id="minimap" aria-label="Minimap"></canvas>
+    <div id="minimap-bar">
+      <button id="minimap-zoom-in" type="button" aria-label="Zoom in">+</button>
+      <button id="minimap-zoom-out" type="button" aria-label="Zoom out">−</button>
+      <span id="minimap-hint"><kbd>M</kbd> hide</span>
+    </div>
   </div>
 
-  <div id="sidebar">
-    <div id="search-wrap">
-      <input id="search" type="text" placeholder="Search nodes&hellip;" autocomplete="off">
-      <div id="search-results"></div>
-    </div>
-    <div id="info-panel">
-      <h3>Node Info</h3>
-      <div id="info-content"><span class="empty">Click a node to inspect</span></div>
-    </div>
-    <div id="filters-wrap">
-      <h3>Filters</h3>
-      <div class="filter-item" id="toggle-deps">
-        <span class="filter-dot" style="background:#2d6a4f"></span>
+  <aside id="sidebar" role="complementary" aria-label="Inspector">
+    <section id="search-wrap" aria-label="Search"></section>
+    <section id="info-panel" aria-label="Node details">
+      <h3><span class="sec-icon" aria-hidden="true">◉</span> Node Info <button id="btn-copy-path" type="button" class="ghost-btn" title="Copy path">Copy</button></h3>
+      <div id="info-content"><div class="empty empty-steps"><div><b>How to inspect</b></div><div>1. Search <kbd>⌘K</kbd> or <kbd>/</kbd> → pick a file</div><div>2. Click a dot → see details here</div><div>3. Follow neighbors → trace deps · <span style="color:var(--accent)">●</span> size=degree · color=module · ╌ contains</div><div style="margin-top:8px;color:var(--muted)">Double-click a module in legend to isolate · <kbd>M</kbd> toggles minimap</div></div></div>
+      <div id="info-meta" class="info-meta"></div>
+    </section>
+    <section id="filters-wrap" aria-label="Filters">
+      <h3><span class="sec-icon" aria-hidden="true">◩</span> Filters <button id="btn-reset-filters" type="button" class="ghost-btn">Reset</button></h3>
+      <button class="filter-item" id="toggle-deps" type="button" aria-pressed="false">
+        <span class="filter-dot" style="background:var(--accent-deps)"></span>
         <span class="filter-label">Dependencies</span>
         <span class="filter-count" id="dep-count">0</span>
-      </div>
-      <div class="filter-item" id="toggle-entities">
-        <span class="filter-dot" style="background:#6a2d6a"></span>
+      </button>
+      <button class="filter-item" id="toggle-entities" type="button" aria-pressed="false">
+        <span class="filter-dot" style="background:var(--accent-entities)"></span>
         <span class="filter-label">Entities</span>
         <span class="filter-count" id="entity-count">0</span>
-      </div>
-    </div>
-    <div id="cycles-wrap" style="display:none">
-      <h3>Cycles <span id="cycle-count" style="font-size:11px;color:#fecaca;font-weight:500"></span></h3>
-      <div class="filter-item cycle-toggle" id="toggle-cycles">
-        <span class="filter-dot" style="background:#ef4444"></span>
+      </button>
+    </section>
+    <section id="cycles-wrap" style="display:none" aria-label="Cycles">
+      <h3><span class="sec-icon" aria-hidden="true">↺</span> Cycles <span id="cycle-count"></span></h3>
+      <button class="filter-item cycle-toggle" id="toggle-cycles" type="button" aria-pressed="false">
+        <span class="filter-dot" style="background:var(--accent-cycles)"></span>
         <span class="filter-label">Show Cycles</span>
-      </div>
-      <div id="cycles-list" style="margin-top:8px;max-height:200px;overflow-y:auto"></div>
-    </div>
-    <div id="legend-wrap">
-      <h3>Modules</h3>
+      </button>
+      <div id="cycles-list"></div>
+    </section>
+    <section id="legend-wrap" aria-label="Modules">
+      <h3><span class="sec-icon" aria-hidden="true">▦</span> Modules <span id="legend-count" class="count-badge"></span><span class="hint" style="margin-left:auto;font-size:10px;color:var(--muted);font-weight:500;letter-spacing:0; text-transform:none">Tip: double-click to isolate</span></h3>
       <div id="legend"></div>
-    </div>
-    <div id="stats"></div>
-  </div>
+    </section>
+    <footer id="stats" aria-label="Stats"></footer>
+  </aside>
 
   <!-- SCRIPT -->
 </body>
-
 </html>
