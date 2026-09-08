@@ -28,9 +28,23 @@ export async function generateCommand(paths = [], options = {}) {
   if (options.clear !== false) console.clear();
   p.intro(pc.bgCyan(pc.black(' codebase-vis generate ')));
 
+  let cwdReal;
+  try { cwdReal = await fs.realpath(process.cwd()) + path.sep; } catch { cwdReal = process.cwd() + path.sep; }
   const targetDirs = paths.length > 0
-    ? paths.map(p => path.resolve(process.cwd(), p))
+    ? paths.map(p => {
+        const resolved = path.resolve(process.cwd(), p);
+        if (!resolved.startsWith(cwdReal) && resolved !== cwdReal.slice(0, -1)) {
+          p.log?.warn?.(pc.yellow(`Skipping path outside cwd: ${path.relative(process.cwd(), resolved)}`));
+          return null;
+        }
+        return resolved;
+      }).filter(Boolean)
     : [process.cwd()];
+  if (paths.length > 0 && targetDirs.length === 0) {
+    p.log.error(pc.red('No valid paths inside current directory.'));
+    p.outro(pc.dim('Generation cancelled.'));
+    return;
+  }
 
   const s = p.spinner();
 
