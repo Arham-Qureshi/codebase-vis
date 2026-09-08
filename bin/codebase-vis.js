@@ -20,6 +20,7 @@ function semverGt(a, b) {
 }
 
 async function checkForUpdate() {
+  // Allowlist: only npm registry for update check (documented intentional egress)
   const cacheDir = join(homedir(), '.codebase-vis');
   const cacheFile = join(cacheDir, 'update-check.json');
 
@@ -37,13 +38,17 @@ async function checkForUpdate() {
   }
 
   try {
-    const res = await fetch('https://registry.npmjs.org/codebase-vis/latest');
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch('https://registry.npmjs.org/codebase-vis/latest', { signal: controller.signal, redirect: 'error' });
+    clearTimeout(t);
     const data = await res.json();
     const latest = data.version;
 
     try {
-      mkdirSync(cacheDir, { recursive: true });
-      writeFileSync(cacheFile, JSON.stringify({ latest, timestamp: Date.now() }));
+      mkdirSync(cacheDir, { recursive: true, mode: 0o700 });
+      try { writeFileSync(cacheFile, JSON.stringify({ latest, timestamp: Date.now() }), { mode: 0o600 }); }
+      catch { writeFileSync(cacheFile, JSON.stringify({ latest, timestamp: Date.now() })); try { require('fs').chmodSync(cacheFile, 0o600); } catch {} }
     } catch { }
 
     if (latest !== version && semverGt(latest, version)) {
