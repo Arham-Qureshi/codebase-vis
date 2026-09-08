@@ -19,6 +19,11 @@ const ENTITY_QUERY = `
 (impl_item type: (type_identifier) @impl_name)
 `;
 
+const DOCSTRING_QUERY = `
+(line_comment) @doc
+(block_comment) @doc
+`;
+
 // extracts all dependency paths
 export function extractDependencies(astRoot) {
   try {
@@ -31,14 +36,21 @@ export function extractDependencies(astRoot) {
   }
 }
 
-// extracts all top-level entity names
+// extracts structured entities: { classes, functions, methods, docstrings }
 export function extractEntities(astRoot) {
   try {
     const query = new Parser.Query(grammar, ENTITY_QUERY);
     const captures = query.captures(astRoot);
-
-    return captures.map(c => c.node.text);
+    const classes = captures.filter(c => c.name === 'class_name').map(c => c.node.text);
+    const functions = captures.filter(c => c.name === 'func_name').map(c => c.node.text);
+    const methods = captures.filter(c => c.name === 'impl_name').map(c => c.node.text);
+    let docstrings = [];
+    try {
+      const docQuery = new Parser.Query(grammar, DOCSTRING_QUERY);
+      docstrings = docQuery.captures(astRoot).map(c=>c.node.text).filter(t=>t.startsWith('///') || t.startsWith('//!') || t.startsWith('/**') || t.startsWith('/*'));
+    } catch {}
+    return { classes, functions, methods, docstrings };
   } catch {
-    return [];
+    return { classes: [], functions: [], methods: [], docstrings: [] };
   }
 }
