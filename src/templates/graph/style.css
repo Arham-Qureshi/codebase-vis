@@ -163,7 +163,7 @@
     #sidebar{
       position:fixed;right:0;top:var(--toolbar-h);width:var(--sidebar-w);height:calc(100vh - var(--toolbar-h));
       background:var(--panel);backdrop-filter:blur(16px) saturate(1.2);-webkit-backdrop-filter:blur(16px) saturate(1.2);
-      border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;z-index:10;
+      border-left:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;z-index:10;
       box-shadow:-4px 0 24px rgba(0,0,0,0.08);
     }
     #sidebar section{padding:14px 14px 12px;border-bottom:1px solid var(--border)}
@@ -178,7 +178,25 @@
       background:transparent;color:var(--muted);font-size:11px;font-weight:500;cursor:pointer;transition:background .15s;
     }
     .ghost-btn:hover{background:color-mix(in oklab,var(--accent) 10%, transparent);color:var(--text)}
-    #info-panel{min-height:150px}
+    #sidebar-tabs{
+      display:flex;gap:2px;padding:8px 14px 0;border-bottom:1px solid var(--border);flex-shrink:0;
+      position:sticky;top:0;background:var(--panel);backdrop-filter:blur(16px) saturate(1.2);z-index:1;
+    }
+    #sidebar-tabs button{
+      flex:1;padding:8px 0;border:0;background:transparent;color:var(--muted);
+      font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;
+      cursor:pointer;border-bottom:2px solid transparent;transition:color .15s,border-color .15s;
+    }
+    #sidebar-tabs button:hover{color:var(--text)}
+    #sidebar-tabs button[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent)}
+    .tab-panel{display:none}
+    .tab-panel.is-active{display:block}
+    .tab-badge{
+      display:inline-block;background:var(--accent);color:var(--bg);
+      padding:1px 5px;border-radius:999px;font-size:9px;font-weight:700;
+      margin-left:4px;vertical-align:middle;
+    }
+    #tab-info section,#tab-files section{padding:14px 14px 12px}
     #info-content{font-size:13px;color:var(--text);line-height:1.6;max-width:65ch}
     #info-content .field{margin-bottom:4px}
     #info-content .field b{color:var(--text);font-weight:600}
@@ -264,6 +282,38 @@
     .cycle-item .cycle-label{color:var(--text);font-weight:600}
     .cycle-item .cycle-files{color:var(--muted);font-size:11px;margin-top:3px}
     #cycles-list{max-height:220px;overflow:auto;display:flex;flex-direction:column;gap:6px}
+    #files-wrap{display:flex;flex-direction:column}
+    #file-search{
+      margin:0 0 6px;padding:6px 8px;border-radius:6px;
+      border:1px solid var(--border);background:var(--panel-solid);
+      color:var(--text);font-size:11px;width:100%;font-family:inherit;outline:none;
+    }
+    #file-search:focus{border-color:var(--accent)}
+    #file-search::placeholder{color:var(--muted-2)}
+    #file-tree{overflow-y:auto;max-height:calc(100vh - var(--toolbar-h) - 260px);padding-right:4px;display:flex;flex-direction:column;gap:1px}
+    .file-dir{
+      padding:4px 6px;font-size:11px;color:var(--muted);cursor:pointer;
+      display:flex;align-items:center;gap:4px;border-radius:4px;user-select:none;
+      transition:background .15s;
+    }
+    .file-dir:hover{background:color-mix(in oklab,var(--panel-solid) 92%,white 8%)}
+    .file-dir .arrow{transition:transform .15s;font-size:8px;width:10px;text-align:center}
+    .file-dir.collapsed .arrow{transform:rotate(-90deg)}
+    .file-dir .dir-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .file-dir .dir-count{color:var(--muted-2);font-size:10px}
+    .file-item{
+      padding:4px 6px 4px 20px;font-size:11px;cursor:pointer;
+      border-radius:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+      display:flex;align-items:center;gap:6px;transition:background .15s;
+    }
+    .file-item:hover{background:color-mix(in oklab,var(--panel-solid) 90%,white 10%)}
+    .file-item.active{
+      background:color-mix(in oklab,var(--accent) 15%,transparent);
+      border-inline-start:2px solid var(--accent);padding-left:18px;
+    }
+    .file-item .file-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+    .file-item .file-name{flex:1;overflow:hidden;text-overflow:ellipsis}
+    .file-item .file-deps{color:var(--muted-2);font-size:10px;font-variant-numeric:tabular-nums}
     #btn-menu{display:none}
     @media(max-width:900px){
       #btn-menu{display:inline-flex}

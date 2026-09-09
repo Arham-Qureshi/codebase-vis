@@ -40,6 +40,7 @@
       <div class="toolbar-divider" aria-hidden="true"></div>
       <button class="tb-btn" id="btn-fit" type="button" aria-label="Fit graph" title="Fit graph to viewport — centers all nodes"><span class="tb-icon" aria-hidden="true">◧</span> Fit</button>
       <button class="tb-btn" id="btn-reheat" type="button" aria-label="Reheat layout" title="Reheat forces — jiggles layout when graph settles crowded"><span class="tb-icon" aria-hidden="true">◎</span> Reheat</button>
+      <button class="tb-btn" id="btn-global" type="button" aria-label="Global view" title="Show full graph — exit focused mode" style="display:none"><span class="tb-icon" aria-hidden="true">◉</span> Global</button>
       <label class="tb-search" aria-label="Search nodes"><span class="tb-icon" aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Search nodes · ⌘K" autocomplete="off" spellcheck="false"><button id="search-clear" type="button" aria-label="Clear search">×</button></label>
     </div>
     <div class="toolbar-right">
@@ -93,12 +94,23 @@
   </div>
 
   <aside id="sidebar" role="complementary" aria-label="Inspector">
-    <section id="search-wrap" aria-label="Search"></section>
-    <section id="info-panel" aria-label="Node details">
-      <h3><span class="sec-icon" aria-hidden="true">◉</span> Node Info <button id="btn-copy-path" type="button" class="ghost-btn" title="Copy path">Copy</button></h3>
-      <div id="info-content"><div class="empty empty-steps"><div><b>How to inspect</b></div><div>1. Search <kbd>⌘K</kbd> or <kbd>/</kbd> → pick a file</div><div>2. Click a dot → see details here</div><div>3. Follow neighbors → trace deps · <span style="color:var(--accent)">●</span> size=degree · color=module · ╌ contains</div><div style="margin-top:8px;color:var(--muted)">Double-click a module in legend to isolate · <kbd>M</kbd> toggles minimap</div></div></div>
-      <div id="info-meta" class="info-meta"></div>
-    </section>
+    <nav id="sidebar-tabs">
+      <button data-tab="tab-info" type="button" aria-selected="true">Node Info</button>
+      <button data-tab="tab-files" type="button" aria-selected="false">Files</button>
+    </nav>
+    <div id="tab-info" class="tab-panel is-active">
+      <section id="info-panel" aria-label="Node details">
+        <h3><span class="sec-icon" aria-hidden="true">◉</span> Node Info <button id="btn-copy-path" type="button" class="ghost-btn" title="Copy path">Copy</button></h3>
+        <div id="info-content"><div class="empty empty-steps"><div><b>How to inspect</b></div><div>1. Search <kbd>⌘K</kbd> or <kbd>/</kbd> → pick a file</div><div>2. Click a dot → see details here</div><div>3. Follow neighbors → trace deps · <span style="color:var(--accent)">●</span> size=degree · color=module · ╌ contains</div><div style="margin-top:8px;color:var(--muted)">Double-click a module in legend to isolate · <kbd>M</kbd> toggles minimap</div></div></div>
+        <div id="info-meta" class="info-meta"></div>
+      </section>
+    </div>
+    <div id="tab-files" class="tab-panel">
+      <section id="files-wrap" aria-label="Files">
+        <input id="file-search" type="search" placeholder="Filter files…" autocomplete="off" spellcheck="false">
+        <div id="file-tree"></div>
+      </section>
+    </div>
     <section id="filters-wrap" aria-label="Filters">
       <h3><span class="sec-icon" aria-hidden="true">◩</span> Filters <button id="btn-reset-filters" type="button" class="ghost-btn">Reset</button></h3>
       <button class="filter-item" id="toggle-deps" type="button" aria-pressed="false">

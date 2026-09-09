@@ -111,7 +111,8 @@ program.configureHelp({
             ['--exclude-tests', 'Exclude test/ from 99% whole-repo graph'],
             ['--exclude-docs', 'Exclude markdown docs'],
             ['--exclude-dummy', 'Exclude dummy-polyglot fixture'],
-            ['--exclude-images', 'Exclude images'],
+            ['--exclude-images', 'Exclude image assets'],
+            ['--depth <number>', 'Maximum depth for dependency extraction (default: 3)'],
           ]
         },
         { name: 'clean', syntax: 'clean', desc: 'Remove the generated codebase-out/ directory', use: 'Start fresh or free up disk space' },
@@ -211,7 +212,8 @@ program
   .option('--exclude-tests', 'Exclude test/ directory')
   .option('--exclude-docs', 'Exclude markdown docs')
   .option('--exclude-dummy', 'Exclude dummy-polyglot fixture')
-  .option('--exclude-images', 'Exclude image assets')
+  .option('--exclude-images', 'Exclude images')
+  .option('--depth <number>', 'Maximum depth for dependency extraction (default: 3)')
   .action(generateCommand);
 
 program

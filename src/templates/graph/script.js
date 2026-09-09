@@ -68,14 +68,14 @@
       const nodes = data.nodes.map(n => {
         const a = n.attributes;
         const id = n.key;
-        const isEntity = ['entity', 'class', 'function', 'method'].includes(a.kind);
+        const isEntity = ['entity', 'class', 'function', 'method', 'dependency', 'pkg-category', 'pkg-metadata', 'keyword', 'script', 'heading'].includes(a.kind);
         const isExternal = a.external;
         const deg = degree[id] || 0;
         const color = a.color || '#94a3b8';
 
         let radius;
         if (isEntity) {
-          radius = 3;
+          radius = a.kind === 'pkg-category' ? 6 : a.kind === 'dependency' ? 4 : a.kind === 'pkg-metadata' || a.kind === 'keyword' || a.kind === 'script' ? 3 : 3;
         } else if (isExternal) {
           radius = 5;
         } else {
@@ -181,7 +181,7 @@
         canvas.height = height * dpr;
         canvas.style.width = width + 'px';
         canvas.style.height = height + 'px';
-        if (initialized) render();
+        if (initialized) renderDispatch();
       }
       resizeCanvas();
       window.addEventListener('resize', resizeCanvas);
@@ -201,7 +201,7 @@
         })
         .on('zoom', (event) => {
           currentTransform = event.transform;
-          render();
+          renderDispatch();
         });
 
       d3.select(canvas)
@@ -213,14 +213,21 @@
       let selectedNode = null;
       let dragNode = null;
 
+      // ─── 9b. Focused mode state ─────────────────────────────
+      let focusedFileId = null;     // null = global, string = file id
+      let focusedNodeSet = null;    // Set of node ids in focused view
+      let focusedLinks = null;      // filtered links for focused view
+      let focusedSimulation = null; // separate D3 simulation for focused view
+
       // ─── 10. Spatial hit-testing ───────────────────────────────
       function nodeAtPoint(mx, my) {
         // Transform mouse coords to simulation space
         const [sx, sy] = currentTransform.invert([mx, my]);
         const k = currentTransform.k;
+        const hitNodes = focusedSimulation ? focusedSimulation.nodes() : nodes;
         // Check nodes in reverse (top-drawn last = top)
-        for (let i = nodes.length - 1; i >= 0; i--) {
-          const n = nodes[i];
+        for (let i = hitNodes.length - 1; i >= 0; i--) {
+          const n = hitNodes[i];
           if (n._hidden) continue;
           const dx = sx - n.x;
           const dy = sy - n.y;
@@ -273,10 +280,14 @@
         .force('boundary', forceBoundary(boundaryRadius))
         .alphaDecay(0.02)
         .velocityDecay(0.35)
-        .on('tick', render);
+        .on('tick', renderDispatch);
       initialized = true;
 
       // ─── 12. Canvas Render Loop ─────────────────────────────────
+      function renderDispatch() {
+        if (focusedFileId) renderFocused();
+        else render();
+      }
       function render() {
         ctx.save();
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -423,6 +434,9 @@
               if (['entity', 'class', 'function', 'method'].includes(n._kind)) {
                 showLabel = k > 1.8;
                 labelAlpha *= 0.7;
+              } else if (['dependency', 'pkg-category', 'pkg-metadata', 'keyword', 'script'].includes(n._kind)) {
+                showLabel = k > 0.8;
+                labelAlpha *= 0.8;
               } else {
                 showLabel = true;
               }
@@ -476,8 +490,8 @@
       function dragStarted(event) {
         if (!event.subject) return;
         dragNode = event.subject;
-        // Obsidian jiggle: gentle reheat, only k-hop neighbors respond
-        simulation.alphaTarget(0.2).restart();
+        const activeSim = focusedSimulation || simulation;
+        activeSim.alphaTarget(0.2).restart();
         dragNode.fx = dragNode.x;
         dragNode.fy = dragNode.y;
         selectedNode = dragNode;
@@ -493,10 +507,9 @@
 
       function dragEnded(event) {
         if (!dragNode) return;
-        // Obsidian relax: smooth settle back to equilibrium
-        simulation.alphaTarget(0);
+        const activeSim = focusedSimulation || simulation;
+        activeSim.alphaTarget(0);
         if (!event.sourceEvent.shiftKey) {
-          // Release pin — Obsidian default
           dragNode.fx = null;
           dragNode.fy = null;
         } else {
@@ -515,7 +528,7 @@
         if (hit !== hoveredNode) {
           hoveredNode = hit;
           canvas.style.cursor = hit ? 'pointer' : 'default';
-          render();
+          renderDispatch();
         }
       });
 
@@ -523,7 +536,7 @@
         if (hoveredNode) {
           hoveredNode = null;
           canvas.style.cursor = 'default';
-          render();
+          renderDispatch();
         }
       });
 
@@ -537,12 +550,17 @@
         if (hit) {
           selectedNode = hit;
           showInfo(hit.id);
-          render();
+          // In focused mode, clicking a neighbor file switches focus
+          if (focusedFileId && hit._kind === 'file' && hit.id !== focusedFileId) {
+            enterFocusedMode(hit.id);
+          } else {
+            renderDispatch();
+          }
         } else {
           selectedNode = null;
           document.getElementById('info-content').innerHTML = '<span class="empty">Click a node to inspect · hover to preview</span>';
           document.getElementById('info-meta').innerHTML='';
-          render();
+          renderDispatch();
         }
       });
 
@@ -551,6 +569,7 @@
       if(metaEl) metaEl.textContent = fileCount + ' files · ' + links.length + ' edges · ' + communityMap.size + ' modules';
 
       document.getElementById('btn-fit')?.addEventListener('click', () => {
+        if (focusedFileId) { fitFocusedView(); return; }
         // Compute bounding box
         let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
         for (const n of nodes) {
@@ -687,12 +706,16 @@
           el.style.borderInlineStart = '1px solid ' + n.color;
           el.style.paddingLeft = '8px';
           el.addEventListener('click', () => {
-            focusNode(n.id, 1.4);
-            selectedNode = nodeMap.get(n.id);
-            showInfo(n.id);
+            if (n.kind === 'file') {
+              enterFocusedMode(n.id);
+            } else {
+              focusNode(n.id, 1.4);
+              selectedNode = nodeMap.get(n.id);
+              showInfo(n.id);
+              renderDispatch();
+            }
             searchResults.style.display = 'none';
             searchInput.value = '';
-            render();
           });
           el.addEventListener('mouseenter', ()=> { [...searchResults.children].forEach(c=>c.classList.remove('is-active')); el.classList.add('is-active'); activeIdx=idx; });
           searchResults.appendChild(el);
@@ -725,7 +748,7 @@
       const legendCount = document.getElementById('legend-count');
       if(legendCount) legendCount.textContent = communityMap.size + ' modules';
       const hiddenCommunities = new Set();
-      const keysToSkip = new Set(['dependencies', 'entities']);
+      const keysToSkip = new Set(['dependencies', 'entities', 'package-config', 'documentation']);
       const sortedKeys = [...communityMap.keys()]
         .filter(k => !keysToSkip.has(k))
         .sort((a, b) => a.localeCompare(b));
@@ -764,7 +787,7 @@
               if (node) node._hidden = !isHidden;
             }
             updateBlankGuard();
-            render();
+            renderDispatch();
           });
           item.addEventListener('mouseenter', ()=>{
             if(hiddenCommunities.size>0) return;
@@ -775,11 +798,11 @@
                 if (node) node._opacity = 0.15;
               }
             }
-            render();
+            renderDispatch();
           });
           item.addEventListener('mouseleave', ()=>{
             for (const n of nodes) n._opacity = 1;
-            render();
+            renderDispatch();
           });
           item.addEventListener('dblclick', ()=>{
             const hideOthers = !hiddenCommunities.has(key) || hiddenCommunities.size>1;
@@ -796,7 +819,7 @@
                 }
               }
               updateBlankGuard();
-              render();
+              renderDispatch();
             }
           });
           legendEl.appendChild(item);
@@ -813,7 +836,382 @@
       }
       renderLegend();
 
-      // ─── 21. Stats ─────────────────────────────────────────────
+      // ─── 21b. File tree + Focused mode ────────────────────────
+      const fileListEl = document.getElementById('file-tree');
+      const fileSearchEl = document.getElementById('file-search');
+      const btnGlobal = document.getElementById('btn-global');
+      const filesTabBtn = document.querySelector('[data-tab="tab-files"]');
+      const tabBtns = document.querySelectorAll('#sidebar-tabs button');
+      const tabPanels = document.querySelectorAll('.tab-panel');
+
+      // Tab switching
+      tabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          tabBtns.forEach(b => b.setAttribute('aria-selected', 'false'));
+          tabPanels.forEach(p => p.classList.remove('is-active'));
+          btn.setAttribute('aria-selected', 'true');
+          document.getElementById(btn.dataset.tab).classList.add('is-active');
+        });
+      });
+
+      // Collect file nodes and group by directory
+      const fileNodes = nodes.filter(n => n._kind === 'file');
+      const fileTree = {};
+      for (const fn of fileNodes) {
+        const parts = fn.id.split('/');
+        const name = parts.pop();
+        const dir = parts.join('/') || '.';
+        if (!fileTree[dir]) fileTree[dir] = [];
+        fileTree[dir].push({ id: fn.id, name, color: fn.color, degree: fn._degree });
+      }
+      const sortedDirs = Object.keys(fileTree).sort((a, b) => a.localeCompare(b));
+
+      // Track collapsed directories
+      const collapsedDirs = new Set();
+
+      function renderFileTree(filter) {
+        if (!fileListEl) return;
+        fileListEl.innerHTML = '';
+        const q = (filter || '').toLowerCase().trim();
+        let totalCount = 0;
+
+        for (const dir of sortedDirs) {
+          const files = fileTree[dir];
+          const filtered = q
+            ? files.filter(f => f.name.toLowerCase().includes(q) || f.id.toLowerCase().includes(q))
+            : files;
+          if (!filtered.length) continue;
+          totalCount += filtered.length;
+
+          // Directory header
+          const dirEl = document.createElement('div');
+          dirEl.className = 'file-dir' + (collapsedDirs.has(dir) ? ' collapsed' : '');
+          dirEl.innerHTML = '<span class="arrow" aria-hidden="true">▾</span><span class="dir-name">' + esc(dir === '.' ? '/' : dir) + '</span><span class="dir-count">' + filtered.length + '</span>';
+          dirEl.addEventListener('click', () => {
+            if (collapsedDirs.has(dir)) collapsedDirs.delete(dir);
+            else collapsedDirs.add(dir);
+            renderFileTree(fileSearchEl?.value);
+          });
+          fileListEl.appendChild(dirEl);
+
+          if (!collapsedDirs.has(dir)) {
+            for (const f of filtered) {
+              const item = document.createElement('div');
+              item.className = 'file-item' + (focusedFileId === f.id ? ' active' : '');
+              item.dataset.fileId = f.id;
+              item.innerHTML = '<span class="file-dot" style="background:' + esc(f.color) + '"></span><span class="file-name" title="' + esc(f.id) + '">' + esc(f.name) + '</span><span class="file-deps">' + f.degree + '</span>';
+              item.addEventListener('click', () => enterFocusedMode(f.id));
+              fileListEl.appendChild(item);
+            }
+          }
+        }
+
+        if (!totalCount && q) {
+          fileListEl.innerHTML = '<div style="padding:8px;color:var(--muted);font-size:11px;font-style:italic">No files matching "' + esc(q) + '"</div>';
+        } else if (!totalCount) {
+          fileListEl.innerHTML = '<div style="padding:8px;color:var(--muted);font-size:11px;font-style:italic">No file nodes found</div>';
+        }
+      }
+      renderFileTree();
+
+      if (fileSearchEl) {
+        fileSearchEl.addEventListener('input', () => renderFileTree(fileSearchEl.value));
+      }
+
+      function enterFocusedMode(fileId) {
+        const neighbors = getNeighbors(fileId);
+        focusedFileId = fileId;
+        focusedNodeSet = new Set([fileId, ...neighbors]);
+
+        // Filter links: only edges touching the selected file
+        focusedLinks = links.filter(l => {
+          const sid = typeof l.source === 'object' ? l.source.id : l.source;
+          const tid = typeof l.target === 'object' ? l.target.id : l.target;
+          return sid === fileId || tid === fileId;
+        });
+
+        // Create focused nodes array (clone positions from originals)
+        const focusedNodes = [...focusedNodeSet].map(nid => {
+          const orig = nodeMap.get(nid);
+          return { ...orig, x: orig.x, y: orig.y, fx: null, fy: null };
+        });
+
+        // Stop global simulation
+        simulation.stop();
+
+        // Create focused simulation
+        const fBoundaryRadius = Math.sqrt(focusedNodes.length) * 80;
+        focusedSimulation = d3.forceSimulation(focusedNodes)
+          .force('charge', d3.forceManyBody().strength(-300).distanceMax(400))
+          .force('link', d3.forceLink(focusedLinks).id(d => d.id).distance(100).strength(0.6))
+          .force('collide', d3.forceCollide().radius(d => d.radius + 6).strength(0.8))
+          .force('center', d3.forceCenter(0, 0).strength(0.1))
+          .force('boundary', forceBoundary(fBoundaryRadius))
+          .alphaDecay(0.02)
+          .velocityDecay(0.35)
+          .on('tick', () => { renderDispatch(); if (drawMinimapRef) drawMinimapRef(); });
+
+        // Update UI
+        btnGlobal.style.display = '';
+        filesTabBtn.innerHTML = 'Files <span class="tab-badge">FOCUSED</span>';
+
+        // Auto-switch to Files tab
+        tabBtns.forEach(b => b.setAttribute('aria-selected', 'false'));
+        tabPanels.forEach(p => p.classList.remove('is-active'));
+        filesTabBtn.setAttribute('aria-selected', 'true');
+        document.getElementById('tab-files').classList.add('is-active');
+
+        // Highlight selected in file tree
+        document.querySelectorAll('.file-item').forEach(el => {
+          el.classList.toggle('active', el.dataset.fileId === fileId);
+        });
+
+        // Show info
+        selectedNode = nodeMap.get(fileId);
+        showInfo(fileId);
+
+        // Smooth zoom after brief settle
+        setTimeout(() => fitFocusedView(), 600);
+
+        const label = fileId.split('/').pop();
+        showToast('Focused: ' + label);
+      }
+
+      function exitFocusedMode() {
+        if (!focusedFileId) return;
+        focusedFileId = null;
+        focusedNodeSet = null;
+        focusedLinks = null;
+
+        if (focusedSimulation) {
+          focusedSimulation.stop();
+          focusedSimulation = null;
+        }
+
+        // Restore global simulation
+        simulation.alpha(0.3).restart();
+
+        // Update UI
+        btnGlobal.style.display = 'none';
+        filesTabBtn.textContent = 'Files';
+        document.querySelectorAll('.file-item.active').forEach(el => el.classList.remove('active'));
+
+        // Auto-switch to Node Info tab
+        tabBtns.forEach(b => b.setAttribute('aria-selected', 'false'));
+        tabPanels.forEach(p => p.classList.remove('is-active'));
+        document.querySelector('[data-tab="tab-info"]').setAttribute('aria-selected', 'true');
+        document.getElementById('tab-info').classList.add('is-active');
+
+        // Update stats display
+        metaEl.textContent = fileCount + ' files · ' + links.length + ' edges · ' + communityMap.size + ' modules';
+
+        showToast('Global view');
+      }
+
+      function renderFocused() {
+        ctx.save();
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, width, height);
+        ctx.translate(currentTransform.x, currentTransform.y);
+        ctx.scale(currentTransform.k, currentTransform.k);
+
+        const k = currentTransform.k;
+        const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+        const fNodes = focusedSimulation ? focusedSimulation.nodes() : [];
+        const fLinksList = focusedLinks || [];
+
+        const hoveredId = hoveredNode ? hoveredNode.id : null;
+        const selectedId = selectedNode ? selectedNode.id : null;
+        const activeId = hoveredId || selectedId;
+        const activeNeighbors = activeId ? getNeighbors(activeId) : null;
+
+        // Draw edges
+        for (const l of fLinksList) {
+          const s = typeof l.source === 'object' ? l.source : null;
+          const t = typeof l.target === 'object' ? l.target : null;
+          if (!s || !t) continue;
+
+          let alpha = 0.65;
+          let lineWidth = l._isContains ? 1 : 2;
+          let strokeColor = l._color || '#64748b';
+
+          if (activeId) {
+            const sid = s.id;
+            const tid = t.id;
+            if (sid === activeId || tid === activeId) {
+              alpha = 0.95;
+              lineWidth = l._isContains ? 1.5 : 3;
+            } else {
+              alpha = 0.15;
+            }
+          }
+
+          ctx.globalAlpha = alpha;
+          ctx.strokeStyle = strokeColor;
+          ctx.lineWidth = lineWidth / k;
+
+          if (l._isContains) {
+            ctx.setLineDash([4 / k, 4 / k]);
+          }
+
+          ctx.beginPath();
+          ctx.moveTo(s.x, s.y);
+          ctx.lineTo(t.x, t.y);
+          ctx.stroke();
+
+          if (l._isContains) ctx.setLineDash([]);
+
+          // Arrow heads
+          if (!l._isContains && k > 0.3) {
+            const dx = t.x - s.x;
+            const dy = t.y - s.y;
+            const len = Math.sqrt(dx * dx + dy * dy);
+            if (len > 0) {
+              const ux = dx / len;
+              const uy = dy / len;
+              const arrowLen = 7 / k;
+              const arrowW = 3.5 / k;
+              const tipX = t.x - ux * (t.radius + 2);
+              const tipY = t.y - uy * (t.radius + 2);
+              ctx.fillStyle = strokeColor;
+              ctx.globalAlpha = alpha * 0.8;
+              ctx.beginPath();
+              ctx.moveTo(tipX, tipY);
+              ctx.lineTo(tipX - ux * arrowLen + uy * arrowW, tipY - uy * arrowLen - ux * arrowW);
+              ctx.lineTo(tipX - ux * arrowLen - uy * arrowW, tipY - uy * arrowLen + ux * arrowW);
+              ctx.closePath();
+              ctx.fill();
+            }
+          }
+        }
+
+        // Draw nodes
+        for (const n of fNodes) {
+          let nodeAlpha = 1;
+          let glowRadius = 0;
+
+          if (n.id === focusedFileId) {
+            glowRadius = 16;
+            nodeAlpha = 1;
+          } else if (activeId) {
+            if (n.id === activeId) {
+              glowRadius = 12;
+              nodeAlpha = 1;
+            } else if (activeNeighbors && activeNeighbors.has(n.id)) {
+              nodeAlpha = 0.9;
+            } else {
+              nodeAlpha = 0.3;
+            }
+          }
+
+          ctx.globalAlpha = nodeAlpha;
+
+          if (glowRadius > 0) {
+            ctx.shadowColor = n.color;
+            ctx.shadowBlur = glowRadius / k;
+          }
+
+          // Highlight the focused file with a ring
+          if (n.id === focusedFileId) {
+            ctx.strokeStyle = n.color;
+            ctx.lineWidth = 2.5 / k;
+            ctx.beginPath();
+            ctx.arc(n.x, n.y, n.radius + 4 / k, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+
+          ctx.fillStyle = n.color;
+          ctx.beginPath();
+          ctx.arc(n.x, n.y, n.radius, 0, Math.PI * 2);
+          ctx.fill();
+
+          if (glowRadius > 0) {
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
+          }
+
+          // Border ring for file/external
+          if (n._kind === 'file' || n._kind === 'external') {
+            ctx.strokeStyle = isLight ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.15)';
+            ctx.lineWidth = 0.5 / k;
+            ctx.stroke();
+          }
+        }
+
+        // Draw labels
+        const showLabelsThreshold = 0.3;
+        if (k > showLabelsThreshold) {
+          const labelAlphaBase = Math.min(1, (k - showLabelsThreshold) / 0.5);
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'top';
+
+          for (const n of fNodes) {
+            let showLabel = false;
+            let labelAlpha = labelAlphaBase;
+
+            if (n.id === focusedFileId) {
+              showLabel = true;
+              labelAlpha = 1;
+            } else if (n.id === activeId) {
+              showLabel = true;
+              labelAlpha = 1;
+            } else if (activeNeighbors && activeNeighbors.has(n.id)) {
+              showLabel = true;
+              labelAlpha = 0.85;
+            } else {
+              showLabel = true;
+              labelAlpha *= 0.8;
+            }
+
+            if (!showLabel) continue;
+
+            const fontSize = Math.max(9, Math.min(14, 12)) / k;
+            ctx.font = '500 ' + fontSize + 'px Inter, system-ui, sans-serif';
+            ctx.globalAlpha = labelAlpha;
+            ctx.fillStyle = isLight ? '#18181b' : '#e6e6eb';
+            ctx.fillText(n.label, n.x, n.y + n.radius + 4 / k);
+          }
+        }
+
+        ctx.restore();
+      }
+
+      function fitFocusedView() {
+        if (!focusedSimulation) return;
+        const fNodes = focusedSimulation.nodes();
+        if (!fNodes.length) return;
+
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        for (const n of fNodes) {
+          if (n.x < minX) minX = n.x;
+          if (n.x > maxX) maxX = n.x;
+          if (n.y < minY) minY = n.y;
+          if (n.y > maxY) maxY = n.y;
+        }
+        if (!isFinite(minX)) return;
+
+        const pad = 80;
+        const bw = maxX - minX + pad * 2;
+        const bh = maxY - minY + pad * 2;
+        const scale = Math.min(width / bw, height / bh, 3);
+        const cx = (minX + maxX) / 2;
+        const cy = (minY + maxY) / 2;
+        const t = d3.zoomIdentity
+          .translate(width / 2, height / 2)
+          .scale(scale)
+          .translate(-cx, -cy);
+
+        d3.select(canvas)
+          .transition()
+          .duration(500)
+          .ease(d3.easeCubicInOut)
+          .call(zoom.transform, t);
+      }
+
+      // Global button handler
+      btnGlobal?.addEventListener('click', exitFocusedMode);
+
+      // ─── 21c. Stats ─────────────────────────────────────────
       const totalEntities = classCount + funcCount + methodCount + entityCount;
       const statsEl=document.getElementById('stats');
       if(statsEl){
@@ -827,7 +1225,7 @@
 
       // ─── 22. Filters ──────────────────────────────────────────
       const depNodeIds = nodes.filter(n => n._npm).map(n => n.id);
-      const entityNodeIds = nodes.filter(n => ['entity', 'class', 'function', 'method'].includes(n._kind)).map(n => n.id);
+      const entityNodeIds = nodes.filter(n => ['entity', 'class', 'function', 'method', 'dependency', 'pkg-category', 'pkg-metadata', 'keyword', 'script', 'heading'].includes(n._kind)).map(n => n.id);
       document.getElementById('dep-count').textContent = depNodeIds.length;
       document.getElementById('entity-count').textContent = entityNodeIds.length;
       const hiddenFilters = {};
@@ -843,7 +1241,7 @@
         }
         showToast(isHidden ? 'Showing dependencies' : 'Hid dependencies');
         updateBlankGuard();
-        render();
+        renderDispatch();
       });
       document.getElementById('toggle-entities').addEventListener('click', function () {
         const isHidden = hiddenFilters.entities;
@@ -856,7 +1254,7 @@
         }
         showToast(isHidden ? 'Showing entities' : 'Hid entities');
         updateBlankGuard();
-        render();
+        renderDispatch();
       });
       document.getElementById('btn-reset-filters')?.addEventListener('click', ()=>{
         hiddenFilters.deps=false; hiddenFilters.entities=false;
@@ -869,7 +1267,7 @@
         for (const n of nodes) { n._hidden = false; n._opacity = 1; }
         document.getElementById('blank-guard').style.display='none';
         showToast('Reset filters');
-        render();
+        renderDispatch();
       });
 
       // ─── 23. Info panel ────────────────────────────────────────
@@ -892,6 +1290,41 @@
           const parentFile = sepIdx !== -1 ? nodeId.slice(0, sepIdx) : nodeId;
           moduleLabel = 'entities';
           extra = '<div class="field">Defined in: <span style="font-family:Geist Mono,monospace;font-size:11px;word-break:break-all">' + esc(parentFile) + '</span></div>';
+        } else if (n._kind === 'pkg-metadata') {
+          moduleLabel = 'package-config';
+          const rawNode = data.nodes.find(d => d.key === nodeId);
+          if (rawNode && rawNode.attributes.metaField) {
+            extra = '<div class="field">' + esc(rawNode.attributes.metaField) + ': <span style="font-family:Geist Mono,monospace;font-size:11px;word-break:break-all">' + esc(rawNode.attributes.metaValue || '') + '</span></div>';
+          }
+        } else if (n._kind === 'pkg-category') {
+          moduleLabel = 'package-config';
+          const rawNode = data.nodes.find(d => d.key === nodeId);
+          if (rawNode && rawNode.attributes.depCategory) {
+            extra = '<div class="field">Category: <span style="font-family:Geist Mono,monospace;font-size:11px">' + esc(rawNode.attributes.depCategory) + '</span></div>';
+          }
+        } else if (n._kind === 'dependency') {
+          moduleLabel = 'dependencies';
+          const rawNode = data.nodes.find(d => d.key === nodeId);
+          if (rawNode && rawNode.attributes.version) {
+            extra = '<div class="field">Version: <span style="font-family:Geist Mono,monospace;font-size:11px">' + esc(rawNode.attributes.version) + '</span></div>';
+          }
+          if (rawNode && rawNode.attributes.depType) {
+            extra += '<div class="field">Type: <span style="font-family:Geist Mono,monospace;font-size:11px">' + esc(rawNode.attributes.depType) + '</span></div>';
+          }
+        } else if (n._kind === 'keyword') {
+          moduleLabel = 'package-config';
+        } else if (n._kind === 'script') {
+          moduleLabel = 'package-config';
+          const rawNode = data.nodes.find(d => d.key === nodeId);
+          if (rawNode && rawNode.attributes.scriptCommand) {
+            extra = '<div class="field">Command: <span style="font-family:Geist Mono,monospace;font-size:11px;word-break:break-all">' + esc(rawNode.attributes.scriptCommand) + '</span></div>';
+          }
+        } else if (n._kind === 'heading') {
+          moduleLabel = 'documentation';
+          const rawNode = data.nodes.find(d => d.key === nodeId);
+          if (rawNode && rawNode.attributes.headingLevel) {
+            extra = '<div class="field">Level: <span style="font-family:Geist Mono,monospace;font-size:11px">H' + esc(String(rawNode.attributes.headingLevel)) + '</span></div>';
+          }
         }
 
         document.getElementById('info-content').innerHTML =
@@ -913,10 +1346,16 @@
         document.querySelectorAll('.neighbor-link').forEach(el => {
           el.addEventListener('click', () => {
             const nid = el.getAttribute('data-nid');
-            focusNode(nid, 1.4);
-            selectedNode = nodeMap.get(nid);
-            showInfo(nid);
-            render();
+            const nbNode = nodeMap.get(nid);
+            // In focused mode, clicking a file neighbor switches focus
+            if (focusedFileId && nbNode && nbNode._kind === 'file' && nid !== focusedFileId) {
+              enterFocusedMode(nid);
+            } else {
+              focusNode(nid, 1.4);
+              selectedNode = nodeMap.get(nid);
+              showInfo(nid);
+              renderDispatch();
+            }
           });
         });
       }
@@ -924,6 +1363,7 @@
       // ─── 24. Minimap ──────────────────────────────────────────
       let minimapVisible = true;
       let minimapAnimating = false;
+      let drawMinimapRef = null; // set by setupMinimap
 
       function setupMinimap() {
         const wrap = document.getElementById('minimap-wrap');
@@ -951,8 +1391,9 @@
 
         let prevMinX, prevMinY, prevRangeX, prevRangeY;
         function computeBounds() {
+          const boundsNodes = focusedSimulation ? focusedSimulation.nodes() : nodes;
           let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-          for (const n of nodes) {
+          for (const n of boundsNodes) {
             if (n._hidden) continue;
             if (n.x < minX) minX = n.x;
             if (n.x > maxX) maxX = n.x;
@@ -978,10 +1419,13 @@
           mmCtx.clearRect(0, 0, dims.w, dims.h);
           if (!computeBounds()) return;
 
+          const mmNodes = focusedSimulation ? focusedSimulation.nodes() : nodes;
+          const mmLinks = focusedLinks || links;
+
           // Draw edges
           mmCtx.globalAlpha = 0.12;
           mmCtx.lineWidth = 0.5;
-          for (const l of links) {
+          for (const l of mmLinks) {
             const s = typeof l.source === 'object' ? l.source : nodeMap.get(l.source);
             const t = typeof l.target === 'object' ? l.target : nodeMap.get(l.target);
             if (!s || !t || s._hidden || t._hidden) continue;
@@ -994,8 +1438,8 @@
 
           // Draw nodes
           mmCtx.globalAlpha = 0.3;
-          const nodeR = Math.max(0.6, Math.min(1.2, 1.2 - ((nodes.length - 50) / 450) * 0.6));
-          for (const n of nodes) {
+          const nodeR = Math.max(0.6, Math.min(1.2, 1.2 - ((mmNodes.length - 50) / 450) * 0.6));
+          for (const n of mmNodes) {
             if (n._hidden) continue;
             mmCtx.beginPath();
             mmCtx.arc(toX(n.x), toY(n.y), nodeR, 0, Math.PI * 2);
@@ -1018,6 +1462,7 @@
           mmCtx.fillStyle = isLight ? 'rgba(18,18,27,0.04)' : 'rgba(255,255,255,0.06)';
           mmCtx.fillRect(rx, ry, rw, rh);
         }
+        drawMinimapRef = drawMinimap;
 
         // Sync minimap on every frame
         simulation.on('tick.minimap', drawMinimap);
@@ -1026,7 +1471,7 @@
         const origZoomHandler = zoom.on('zoom');
         zoom.on('zoom', (event) => {
           currentTransform = event.transform;
-          render();
+          renderDispatch();
           drawMinimap();
         });
 
@@ -1093,13 +1538,23 @@
         wrap.addEventListener('mouseleave', () => { if (!isDragging) mmCanvas.style.cursor = 'default'; });
       }
 
-      // ─── 25. M key toggle + Esc ───────────────────────────────
+      // ─── 25. Keyboard shortcuts ────────────────────────────────
       document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && sidebar.classList.contains('is-open')){ sidebar.classList.remove('is-open'); document.getElementById('btn-menu')?.setAttribute('aria-expanded','false'); }
+        if (e.target.tagName === 'INPUT') return;
+        if (e.key === 'Escape') {
+          if (sidebar.classList.contains('is-open')) {
+            sidebar.classList.remove('is-open');
+            document.getElementById('btn-menu')?.setAttribute('aria-expanded','false');
+          } else if (focusedFileId) {
+            exitFocusedMode();
+          }
+        }
         if (e.key === 'm' || e.key === 'M') {
-          if (e.target.tagName === 'INPUT') return;
           minimapVisible = !minimapVisible;
           document.getElementById('minimap-wrap').classList.toggle('minimap-hidden', !minimapVisible);
+        }
+        if (e.key === 'g' || e.key === 'G') {
+          if (focusedFileId) exitFocusedMode();
         }
       });
 
@@ -1183,7 +1638,7 @@
             const firstId = cycleState.cycles[0].files[0]?.id;
             if (firstId) focusNode(firstId, 1.2);
           }
-          render();
+          renderDispatch();
         });
 
         function focusCycle(cycle) {

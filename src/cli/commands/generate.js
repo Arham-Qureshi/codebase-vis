@@ -94,6 +94,10 @@ export async function generateCommand(paths = [], options = {}) {
   if (ignoredCount > 0) detail += `, ${pc.dim(ignoredCount + ' ignored')}`;
   s.stop(pc.green(`Found ${detail}`));
 
+  if (files.length > 1000) {
+    p.log.message(pc.yellow(`⚡ Tip: Large codebase detected (${files.length} files). Use --depth 2 for faster generation.`));
+  }
+
   s.start('Checking file cache...');
   const cache = await loadCache(outDir);
   const discoveredSet = new Set(files);
@@ -177,7 +181,11 @@ export async function generateCommand(paths = [], options = {}) {
   }
 
   s.start('Building dependency graph...');
-  const graph = buildGraph(allParsed);
+  const depth = options.depth ? parseInt(options.depth, 10) : 3;
+  if (isNaN(depth) || depth < 1 || depth > 5) {
+    p.log.warn(pc.yellow('Invalid depth. Using default (3).'));
+  }
+  const graph = buildGraph(allParsed, { depth: isNaN(depth) || depth < 1 || depth > 5 ? 3 : depth });
   s.stop(pc.green(`Graph built: ${pc.bold(graph.order)} nodes, ${pc.bold(graph.size)} edges`));
 
   s.start('Writing graph.json...');
