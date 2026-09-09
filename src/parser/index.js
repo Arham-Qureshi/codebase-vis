@@ -57,7 +57,7 @@ function getParser(ext) {
   return { parser: parserCache.get(ext), config };
 }
 
-async function parseFileInternal(filePath) {
+async function parseFileInternal(filePath, options = {}) {
   const content = await fs.readFile(filePath, 'utf8');
   if (!content || content.trim().length === 0) return null;
   const ext = path.extname(filePath).toLowerCase();
@@ -80,15 +80,15 @@ async function parseFileInternal(filePath) {
   return { id: relPath, dependencies, entities };
 }
 
-export async function parseFile(filePath) {
+export async function parseFile(filePath, options = {}) {
   try {
-    return await parseFileInternal(filePath);
+    return await parseFileInternal(filePath, options);
   } catch {
     return null;
   }
 }
 
-export async function parseFileBatch(files, onProgress, jobs) {
+export async function parseFileBatch(files, onProgress, jobs, options = {}) {
   const cpuCores = os.cpus().length;
   const maxWorkers = Math.min(cpuCores, 8);
   const requested = jobs ?? Math.max(1, cpuCores - 1);
