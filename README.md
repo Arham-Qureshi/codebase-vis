@@ -4,6 +4,7 @@
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](https://nodejs.org)
 [![License](https://img.shields.io/npm/l/codebase-vis)](LICENSE)
 
+
 A local CLI tool that parses codebases, builds dependency graphs from AST analysis, and outputs interactive architecture visualizations.
 
 ![codebase-vis serve](usage/serve.png)
