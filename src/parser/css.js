@@ -31,20 +31,36 @@ function stripQuotes(s) {
   return s.replace(/^['"]|['"]$/g, '');
 }
 
+const queryCache = new Map();
+
+function getQueries(g) {
+  if (!queryCache.has(g)) {
+    queryCache.set(g, {
+      importString: new Parser.Query(g, IMPORT_STRING_QUERY),
+      importUrl: new Parser.Query(g, IMPORT_URL_QUERY),
+      urlQuoted: new Parser.Query(g, URL_QUOTED_QUERY),
+      urlPlain: new Parser.Query(g, URL_PLAIN_QUERY),
+    });
+  }
+  return queryCache.get(g);
+}
+
 // extracts all dependency paths from CSS
 export function extractDependencies(astRoot) {
   try {
-    const importStringCaps = new Parser.Query(grammar, IMPORT_STRING_QUERY)
-      .captures(astRoot).filter(c => c.name === 'import_path');
+    const { importString, importUrl, urlQuoted, urlPlain } = getQueries(grammar);
 
-    const importUrlCaps = new Parser.Query(grammar, IMPORT_URL_QUERY)
-      .captures(astRoot).filter(c => c.name === 'import_path');
+    const importStringCaps = importString.captures(astRoot)
+      .filter(c => c.name === 'import_path');
 
-    const urlQuotedCaps = new Parser.Query(grammar, URL_QUOTED_QUERY)
-      .captures(astRoot).filter(c => c.name === 'url_path');
+    const importUrlCaps = importUrl.captures(astRoot)
+      .filter(c => c.name === 'import_path');
 
-    const urlPlainCaps = new Parser.Query(grammar, URL_PLAIN_QUERY)
-      .captures(astRoot).filter(c => c.name === 'url_path');
+    const urlQuotedCaps = urlQuoted.captures(astRoot)
+      .filter(c => c.name === 'url_path');
+
+    const urlPlainCaps = urlPlain.captures(astRoot)
+      .filter(c => c.name === 'url_path');
 
     const allPaths = [
       ...importStringCaps.map(c => stripQuotes(c.node.text)),
