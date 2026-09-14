@@ -104,6 +104,32 @@
         <div id="info-content"><div class="empty empty-steps"><div><b>How to inspect</b></div><div>1. Search <kbd>⌘K</kbd> or <kbd>/</kbd> → pick a file</div><div>2. Click a dot → see details here</div><div>3. Follow neighbors → trace deps · <span style="color:var(--accent)">●</span> size=degree · color=module · ╌ contains</div><div style="margin-top:8px;color:var(--muted)">Double-click a module in legend to isolate · <kbd>M</kbd> toggles minimap</div></div></div>
         <div id="info-meta" class="info-meta"></div>
       </section>
+      <section id="filters-wrap" aria-label="Filters">
+        <h3><span class="sec-icon" aria-hidden="true">◩</span> Filters <button id="btn-reset-filters" type="button" class="ghost-btn">Reset</button></h3>
+        <button class="filter-item" id="toggle-deps" type="button" aria-pressed="false">
+          <span class="filter-dot" style="background:var(--accent-deps)"></span>
+          <span class="filter-label">Dependencies</span>
+          <span class="filter-count" id="dep-count">0</span>
+        </button>
+        <button class="filter-item" id="toggle-entities" type="button" aria-pressed="false">
+          <span class="filter-dot" style="background:var(--accent-entities)"></span>
+          <span class="filter-label">Entities</span>
+          <span class="filter-count" id="entity-count">0</span>
+        </button>
+      </section>
+      <section id="cycles-wrap" style="display:none" aria-label="Cycles">
+        <h3><span class="sec-icon" aria-hidden="true">↺</span> Cycles <span id="cycle-count"></span></h3>
+        <button class="filter-item cycle-toggle" id="toggle-cycles" type="button" aria-pressed="false">
+          <span class="filter-dot" style="background:var(--accent-cycles)"></span>
+          <span class="filter-label">Show Cycles</span>
+        </button>
+        <div id="cycles-list"></div>
+      </section>
+      <section id="legend-wrap" aria-label="Modules">
+        <h3><span class="sec-icon" aria-hidden="true">▦</span> Modules <span id="legend-count" class="count-badge"></span><span class="hint" style="margin-left:auto;font-size:10px;color:var(--muted);font-weight:500;letter-spacing:0; text-transform:none">Tip: double-click to isolate</span></h3>
+        <div id="legend"></div>
+      </section>
+      <footer id="stats" aria-label="Stats"></footer>
     </div>
     <div id="tab-files" class="tab-panel">
       <section id="files-wrap" aria-label="Files">
@@ -111,32 +137,6 @@
         <div id="file-tree"></div>
       </section>
     </div>
-    <section id="filters-wrap" aria-label="Filters">
-      <h3><span class="sec-icon" aria-hidden="true">◩</span> Filters <button id="btn-reset-filters" type="button" class="ghost-btn">Reset</button></h3>
-      <button class="filter-item" id="toggle-deps" type="button" aria-pressed="false">
-        <span class="filter-dot" style="background:var(--accent-deps)"></span>
-        <span class="filter-label">Dependencies</span>
-        <span class="filter-count" id="dep-count">0</span>
-      </button>
-      <button class="filter-item" id="toggle-entities" type="button" aria-pressed="false">
-        <span class="filter-dot" style="background:var(--accent-entities)"></span>
-        <span class="filter-label">Entities</span>
-        <span class="filter-count" id="entity-count">0</span>
-      </button>
-    </section>
-    <section id="cycles-wrap" style="display:none" aria-label="Cycles">
-      <h3><span class="sec-icon" aria-hidden="true">↺</span> Cycles <span id="cycle-count"></span></h3>
-      <button class="filter-item cycle-toggle" id="toggle-cycles" type="button" aria-pressed="false">
-        <span class="filter-dot" style="background:var(--accent-cycles)"></span>
-        <span class="filter-label">Show Cycles</span>
-      </button>
-      <div id="cycles-list"></div>
-    </section>
-    <section id="legend-wrap" aria-label="Modules">
-      <h3><span class="sec-icon" aria-hidden="true">▦</span> Modules <span id="legend-count" class="count-badge"></span><span class="hint" style="margin-left:auto;font-size:10px;color:var(--muted);font-weight:500;letter-spacing:0; text-transform:none">Tip: double-click to isolate</span></h3>
-      <div id="legend"></div>
-    </section>
-    <footer id="stats" aria-label="Stats"></footer>
   </aside>
 
   <!-- SCRIPT -->

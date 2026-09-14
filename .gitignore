@@ -8,14 +8,12 @@ to-be-done-fix
 context/
 .devmemory/
 AGENTS.md
-phase-1/
+phase/
 CLAUDE.md
 skills.json
 skills-lock.json
 opencode.json
 .opencode/
 .agents/
-phase-2/
 DESIGN.md
-phase-3/
 PRODUCT.md

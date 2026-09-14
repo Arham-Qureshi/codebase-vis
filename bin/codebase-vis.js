@@ -3,7 +3,7 @@
 import { Command } from 'commander';
 import { createRequire } from 'module';
 const { version } = createRequire(import.meta.url)('../package.json');
-import { initCommand, generateCommand, cleanCommand, serveCommand, queryCommand, pathCommand, explainCommand, detectCommand, statCommand } from '../src/cli/commands/index.js';
+import { initCommand, generateCommand, cleanCommand, serveCommand, queryCommand, pathCommand, explainCommand, detectCommand, statCommand, hookInstallCommand, hookUninstallCommand, hookStatusCommand } from '../src/cli/commands/index.js';
 import { readFileSync, writeFileSync, mkdirSync, existsSync, chmodSync } from 'node:fs';
 import { join } from 'path';
 import { homedir } from 'os';
@@ -119,6 +119,7 @@ program.configureHelp({
         {
           name: 'serve', syntax: 'serve', desc: 'Launch the interactive graph viewer in your browser', use: 'Explore the dependency graph visually', flags: [
             ['-p, --port <number>', 'Port to run on (default: 3000)'],
+            ['--mcp', 'Run as MCP stdio server (for agents)'],
           ]
         },
         { name: 'query', syntax: 'query <target>', desc: 'Inspect a node\'s dependencies and dependents', use: 'Understand how a specific file connects to the codebase' },
@@ -142,6 +143,13 @@ program.configureHelp({
             ['--all', 'Show all hotspots (no limit)'],
             ['--verbose', 'Show extended detail'],
             ['--out <path>', 'Write JSON output to a file (requires --json)'],
+          ]
+        },
+        {
+          name: 'hook', syntax: 'hook <install|uninstall|status>', desc: 'Manage agent hooks (graph-first interception)', use: 'Install PreToolUse hooks for Claude/Cursor/OpenCode etc.', flags: [
+            ['hook install', 'Install hooks for detected AI agents (interactive TUI)'],
+            ['hook uninstall', 'Remove all hooks'],
+            ['hook status', 'Show hook installation status'],
           ]
         },
       ];
@@ -231,7 +239,15 @@ program
     `${D('Starts a local web server to explore the dependency graph in your browser.')}`
   )
   .option('-p, --port <number>', 'Port to run on', '3000')
-  .action(serveCommand);
+  .option('--mcp', 'Run as MCP stdio server (for agents)')
+  .action(async (options) => {
+    if (options.mcp) {
+      const { startMcpServer } = await import('../src/mcp/server.js');
+      await startMcpServer();
+    } else {
+      await serveCommand(options);
+    }
+  });
 
 program
   .command('query <target>')
@@ -282,6 +298,41 @@ program
   .option('--verbose', 'Show extended detail (isolated files, entity list)')
   .option('--out <path>', 'Write JSON output to a file (requires --json)')
   .action(statCommand);
+
+const hook = program
+  .command('hook')
+  .description(
+    `${D('Manage agent hooks (graph-first interception)')}\n` +
+    `${D('Installs PreToolUse hooks for Claude Code, Cursor, OpenCode, Codex/Aider, Gemini CLI.')}`
+  );
+
+hook
+  .command('install')
+  .description(
+    `${D('Install hooks for detected AI agents')}\n` +
+    `${D('Auto-detects workspace markers and shows interactive TUI selector.')}`
+  )
+  .option('--all', 'Install all platforms without prompting')
+  .option('--platforms <list>', 'Comma-separated platforms: claude,cursor,opencode,codex,gemini,mcp')
+  .action(hookInstallCommand);
+
+hook
+  .command('uninstall')
+  .description(
+    `${D('Remove hooks')}\n` +
+    `${D('Deletes hook configs from .claude/, .cursor/, .opencode/, AGENTS.md, GEMINI.md.')}`
+  )
+  .option('--all', 'Remove all without prompting')
+  .option('--platforms <list>', 'Comma-separated platforms to remove')
+  .action(hookUninstallCommand);
+
+hook
+  .command('status')
+  .description(
+    `${D('Show hook installation status')}\n` +
+    `${D('Displays which platforms have hooks installed.')}`
+  )
+  .action(hookStatusCommand);
 
 program.hook('postAction', async () => {
   const start = process.__codebaseVisStartTime || program._actionTime;
