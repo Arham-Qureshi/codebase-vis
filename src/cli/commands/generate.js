@@ -127,6 +127,12 @@ export async function generateCommand(paths = [], options = {}) {
         }
       }
     }
+
+    if (toParse.length === 0 && stalePaths.length === 0) {
+      s.stop(pc.green(`All ${cachedCount} files served from cache — nothing to do`));
+      p.outro(pc.green('✔') + pc.dim(' No changes detected. Output is up to date.'));
+      return;
+    }
   }
 
   let freshResults = [];
