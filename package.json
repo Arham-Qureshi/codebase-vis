@@ -43,6 +43,7 @@
   "dependencies": {
     "@clack/core": "^0.4.1",
     "@clack/prompts": "^0.8.2",
+    "@modelcontextprotocol/server": "^2.0.0",
     "commander": "^15.0.0",
     "graphology": "^0.26.0",
     "graphology-communities-louvain": "^2.0.2",
@@ -59,6 +60,6 @@
     "tree-sitter-python": "^0.21.0",
     "tree-sitter-rust": "^0.21.0",
     "tree-sitter-typescript": "^0.21.2",
-    "vis-network": "^10.1.0"
+    "zod": "^4.6.4"
   }
 }

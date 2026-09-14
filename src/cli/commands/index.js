@@ -7,3 +7,4 @@ export { pathCommand } from './path.js';
 export { explainCommand } from './explain.js';
 export { detectCommand } from './detect.js';
 export { statCommand } from './stat.js';
+export { hookInstallCommand, hookUninstallCommand, hookStatusCommand, registerHookCommand } from './hook.js';

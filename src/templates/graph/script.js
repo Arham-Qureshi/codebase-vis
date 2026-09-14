@@ -216,15 +216,13 @@
       // ─── 9b. Focused mode state ─────────────────────────────
       let focusedFileId = null;     // null = global, string = file id
       let focusedNodeSet = null;    // Set of node ids in focused view
-      let focusedLinks = null;      // filtered links for focused view
-      let focusedSimulation = null; // separate D3 simulation for focused view
 
       // ─── 10. Spatial hit-testing ───────────────────────────────
       function nodeAtPoint(mx, my) {
         // Transform mouse coords to simulation space
         const [sx, sy] = currentTransform.invert([mx, my]);
         const k = currentTransform.k;
-        const hitNodes = focusedSimulation ? focusedSimulation.nodes() : nodes;
+        const hitNodes = nodes;
         // Check nodes in reverse (top-drawn last = top)
         for (let i = hitNodes.length - 1; i >= 0; i--) {
           const n = hitNodes[i];
@@ -285,8 +283,7 @@
 
       // ─── 12. Canvas Render Loop ─────────────────────────────────
       function renderDispatch() {
-        if (focusedFileId) renderFocused();
-        else render();
+        render();
       }
       function render() {
         ctx.save();
@@ -306,6 +303,7 @@
 
         // ── Draw edges ──
         for (const l of links) {
+          if (l._hidden) continue;
           const s = l.source;
           const t = l.target;
           if (s._hidden || t._hidden) continue;
@@ -373,7 +371,10 @@
           let nodeAlpha = n._opacity;
           let glowRadius = 0;
 
-          if (activeId) {
+          if (focusedFileId && n.id === focusedFileId) {
+            glowRadius = 16;
+            nodeAlpha = 1;
+          } else if (activeId) {
             if (n.id === activeId) {
               nodeAlpha = 1;
               glowRadius = 12;
@@ -386,7 +387,6 @@
 
           ctx.globalAlpha = nodeAlpha;
 
-          // Glow effect for hovered/selected node
           if (glowRadius > 0) {
             ctx.shadowColor = n.color;
             ctx.shadowBlur = glowRadius / k;
@@ -400,6 +400,15 @@
           if (glowRadius > 0) {
             ctx.shadowColor = 'transparent';
             ctx.shadowBlur = 0;
+          }
+
+          // Highlight ring for focused file
+          if (focusedFileId && n.id === focusedFileId) {
+            ctx.strokeStyle = n.color;
+            ctx.lineWidth = 2.5 / k;
+            ctx.beginPath();
+            ctx.arc(n.x, n.y, n.radius + 4 / k, 0, Math.PI * 2);
+            ctx.stroke();
           }
 
           // Border ring
@@ -490,7 +499,7 @@
       function dragStarted(event) {
         if (!event.subject) return;
         dragNode = event.subject;
-        const activeSim = focusedSimulation || simulation;
+        const activeSim = simulation;
         activeSim.alphaTarget(0.2).restart();
         dragNode.fx = dragNode.x;
         dragNode.fy = dragNode.y;
@@ -507,7 +516,7 @@
 
       function dragEnded(event) {
         if (!dragNode) return;
-        const activeSim = focusedSimulation || simulation;
+        const activeSim = simulation;
         activeSim.alphaTarget(0);
         if (!event.sourceEvent.shiftKey) {
           dragNode.fx = null;
@@ -854,19 +863,19 @@
         });
       });
 
-      // Collect file nodes and group by directory
+      // Build a nested tree structure from file paths (VSCode-style)
       const fileNodes = nodes.filter(n => n._kind === 'file');
-      const fileTree = {};
+      const treeRoot = { children: {}, files: [] };
       for (const fn of fileNodes) {
         const parts = fn.id.split('/');
-        const name = parts.pop();
-        const dir = parts.join('/') || '.';
-        if (!fileTree[dir]) fileTree[dir] = [];
-        fileTree[dir].push({ id: fn.id, name, color: fn.color, degree: fn._degree });
+        let cursor = treeRoot;
+        for (let i = 0; i < parts.length - 1; i++) {
+          if (!cursor.children[parts[i]]) cursor.children[parts[i]] = { children: {}, files: [] };
+          cursor = cursor.children[parts[i]];
+        }
+        cursor.files.push({ id: fn.id, name: parts[parts.length - 1], color: fn.color, degree: fn._degree });
       }
-      const sortedDirs = Object.keys(fileTree).sort((a, b) => a.localeCompare(b));
 
-      // Track collapsed directories
       const collapsedDirs = new Set();
 
       function renderFileTree(filter) {
@@ -875,36 +884,50 @@
         const q = (filter || '').toLowerCase().trim();
         let totalCount = 0;
 
-        for (const dir of sortedDirs) {
-          const files = fileTree[dir];
-          const filtered = q
-            ? files.filter(f => f.name.toLowerCase().includes(q) || f.id.toLowerCase().includes(q))
-            : files;
-          if (!filtered.length) continue;
-          totalCount += filtered.length;
+        function renderNode(node, depth, pathPrefix) {
+          const sortedDirs = Object.keys(node.children).sort((a, b) => a.localeCompare(b));
+          for (const dirName of sortedDirs) {
+            const child = node.children[dirName];
+            const fullPath = pathPrefix ? pathPrefix + '/' + dirName : dirName;
+            const isCollapsed = collapsedDirs.has(fullPath);
 
-          // Directory header
-          const dirEl = document.createElement('div');
-          dirEl.className = 'file-dir' + (collapsedDirs.has(dir) ? ' collapsed' : '');
-          dirEl.innerHTML = '<span class="arrow" aria-hidden="true">▾</span><span class="dir-name">' + esc(dir === '.' ? '/' : dir) + '</span><span class="dir-count">' + filtered.length + '</span>';
-          dirEl.addEventListener('click', () => {
-            if (collapsedDirs.has(dir)) collapsedDirs.delete(dir);
-            else collapsedDirs.add(dir);
-            renderFileTree(fileSearchEl?.value);
-          });
-          fileListEl.appendChild(dirEl);
+            const filteredFiles = q
+              ? child.files.filter(f => f.name.toLowerCase().includes(q) || f.id.toLowerCase().includes(q))
+              : child.files;
+            const hasVisibleChildren = Object.keys(child.children).length > 0;
+            const hasVisibleFiles = filteredFiles.length > 0;
 
-          if (!collapsedDirs.has(dir)) {
-            for (const f of filtered) {
-              const item = document.createElement('div');
-              item.className = 'file-item' + (focusedFileId === f.id ? ' active' : '');
-              item.dataset.fileId = f.id;
-              item.innerHTML = '<span class="file-dot" style="background:' + esc(f.color) + '"></span><span class="file-name" title="' + esc(f.id) + '">' + esc(f.name) + '</span><span class="file-deps">' + f.degree + '</span>';
-              item.addEventListener('click', () => enterFocusedMode(f.id));
-              fileListEl.appendChild(item);
+            if (q && !hasVisibleFiles && !hasVisibleChildren) continue;
+
+            totalCount += filteredFiles.length;
+
+            const dirEl = document.createElement('div');
+            dirEl.className = 'file-dir' + (isCollapsed ? ' collapsed' : '');
+            dirEl.style.paddingLeft = (8 + depth * 16) + 'px';
+            dirEl.innerHTML = '<span class="arrow" aria-hidden="true">' + (isCollapsed ? '▸' : '▾') + '</span><span class="dir-name">' + esc(dirName) + '</span><span class="dir-count">' + (q ? filteredFiles.length : child.files.length) + '</span>';
+            dirEl.addEventListener('click', () => {
+              if (collapsedDirs.has(fullPath)) collapsedDirs.delete(fullPath);
+              else collapsedDirs.add(fullPath);
+              renderFileTree(fileSearchEl?.value);
+            });
+            fileListEl.appendChild(dirEl);
+
+            if (!isCollapsed) {
+              for (const f of filteredFiles) {
+                const item = document.createElement('div');
+                item.className = 'file-item' + (focusedFileId === f.id ? ' active' : '');
+                item.dataset.fileId = f.id;
+                item.style.paddingLeft = (24 + depth * 16) + 'px';
+                item.innerHTML = '<span class="file-dot" style="background:' + esc(f.color) + '"></span><span class="file-name" title="' + esc(f.id) + '">' + esc(f.name) + '</span><span class="file-deps">' + f.degree + '</span>';
+                item.addEventListener('click', () => enterFocusedMode(f.id));
+                fileListEl.appendChild(item);
+              }
+              renderNode(child, depth + 1, fullPath);
             }
           }
         }
+
+        renderNode(treeRoot, 0, '');
 
         if (!totalCount && q) {
           fileListEl.innerHTML = '<div style="padding:8px;color:var(--muted);font-size:11px;font-style:italic">No files matching "' + esc(q) + '"</div>';
@@ -923,33 +946,25 @@
         focusedFileId = fileId;
         focusedNodeSet = new Set([fileId, ...neighbors]);
 
-        // Filter links: only edges touching the selected file
-        focusedLinks = links.filter(l => {
+        // Hide all non-focused nodes in the global simulation
+        for (const n of nodes) {
+          if (focusedNodeSet.has(n.id)) {
+            n._hidden = false;
+            n._opacity = 1;
+          } else {
+            n._hidden = true;
+            n._opacity = 0;
+          }
+        }
+        // Hide edges that don't touch the focused file
+        for (const l of links) {
           const sid = typeof l.source === 'object' ? l.source.id : l.source;
           const tid = typeof l.target === 'object' ? l.target.id : l.target;
-          return sid === fileId || tid === fileId;
-        });
+          l._hidden = !(sid === fileId || tid === fileId);
+        }
 
-        // Create focused nodes array (clone positions from originals)
-        const focusedNodes = [...focusedNodeSet].map(nid => {
-          const orig = nodeMap.get(nid);
-          return { ...orig, x: orig.x, y: orig.y, fx: null, fy: null };
-        });
-
-        // Stop global simulation
-        simulation.stop();
-
-        // Create focused simulation
-        const fBoundaryRadius = Math.sqrt(focusedNodes.length) * 80;
-        focusedSimulation = d3.forceSimulation(focusedNodes)
-          .force('charge', d3.forceManyBody().strength(-300).distanceMax(400))
-          .force('link', d3.forceLink(focusedLinks).id(d => d.id).distance(100).strength(0.6))
-          .force('collide', d3.forceCollide().radius(d => d.radius + 6).strength(0.8))
-          .force('center', d3.forceCenter(0, 0).strength(0.1))
-          .force('boundary', forceBoundary(fBoundaryRadius))
-          .alphaDecay(0.02)
-          .velocityDecay(0.35)
-          .on('tick', () => { renderDispatch(); if (drawMinimapRef) drawMinimapRef(); });
+        // Reheat global simulation so focused nodes settle nicely
+        simulation.alpha(0.5).restart();
 
         // Update UI
         btnGlobal.style.display = '';
@@ -970,8 +985,8 @@
         selectedNode = nodeMap.get(fileId);
         showInfo(fileId);
 
-        // Smooth zoom after brief settle
-        setTimeout(() => fitFocusedView(), 600);
+        // Zoom to fit focused nodes after brief settle
+        setTimeout(() => fitFocusedView(), 400);
 
         const label = fileId.split('/').pop();
         showToast('Focused: ' + label);
@@ -981,14 +996,12 @@
         if (!focusedFileId) return;
         focusedFileId = null;
         focusedNodeSet = null;
-        focusedLinks = null;
 
-        if (focusedSimulation) {
-          focusedSimulation.stop();
-          focusedSimulation = null;
-        }
+        // Restore all nodes and edges
+        for (const n of nodes) { n._hidden = false; n._opacity = 1; }
+        for (const l of links) { l._hidden = false; }
 
-        // Restore global simulation
+        // Reheat global simulation
         simulation.alpha(0.3).restart();
 
         // Update UI
@@ -1008,181 +1021,11 @@
         showToast('Global view');
       }
 
-      function renderFocused() {
-        ctx.save();
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        ctx.clearRect(0, 0, width, height);
-        ctx.translate(currentTransform.x, currentTransform.y);
-        ctx.scale(currentTransform.k, currentTransform.k);
-
-        const k = currentTransform.k;
-        const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-        const fNodes = focusedSimulation ? focusedSimulation.nodes() : [];
-        const fLinksList = focusedLinks || [];
-
-        const hoveredId = hoveredNode ? hoveredNode.id : null;
-        const selectedId = selectedNode ? selectedNode.id : null;
-        const activeId = hoveredId || selectedId;
-        const activeNeighbors = activeId ? getNeighbors(activeId) : null;
-
-        // Draw edges
-        for (const l of fLinksList) {
-          const s = typeof l.source === 'object' ? l.source : null;
-          const t = typeof l.target === 'object' ? l.target : null;
-          if (!s || !t) continue;
-
-          let alpha = 0.65;
-          let lineWidth = l._isContains ? 1 : 2;
-          let strokeColor = l._color || '#64748b';
-
-          if (activeId) {
-            const sid = s.id;
-            const tid = t.id;
-            if (sid === activeId || tid === activeId) {
-              alpha = 0.95;
-              lineWidth = l._isContains ? 1.5 : 3;
-            } else {
-              alpha = 0.15;
-            }
-          }
-
-          ctx.globalAlpha = alpha;
-          ctx.strokeStyle = strokeColor;
-          ctx.lineWidth = lineWidth / k;
-
-          if (l._isContains) {
-            ctx.setLineDash([4 / k, 4 / k]);
-          }
-
-          ctx.beginPath();
-          ctx.moveTo(s.x, s.y);
-          ctx.lineTo(t.x, t.y);
-          ctx.stroke();
-
-          if (l._isContains) ctx.setLineDash([]);
-
-          // Arrow heads
-          if (!l._isContains && k > 0.3) {
-            const dx = t.x - s.x;
-            const dy = t.y - s.y;
-            const len = Math.sqrt(dx * dx + dy * dy);
-            if (len > 0) {
-              const ux = dx / len;
-              const uy = dy / len;
-              const arrowLen = 7 / k;
-              const arrowW = 3.5 / k;
-              const tipX = t.x - ux * (t.radius + 2);
-              const tipY = t.y - uy * (t.radius + 2);
-              ctx.fillStyle = strokeColor;
-              ctx.globalAlpha = alpha * 0.8;
-              ctx.beginPath();
-              ctx.moveTo(tipX, tipY);
-              ctx.lineTo(tipX - ux * arrowLen + uy * arrowW, tipY - uy * arrowLen - ux * arrowW);
-              ctx.lineTo(tipX - ux * arrowLen - uy * arrowW, tipY - uy * arrowLen + ux * arrowW);
-              ctx.closePath();
-              ctx.fill();
-            }
-          }
-        }
-
-        // Draw nodes
-        for (const n of fNodes) {
-          let nodeAlpha = 1;
-          let glowRadius = 0;
-
-          if (n.id === focusedFileId) {
-            glowRadius = 16;
-            nodeAlpha = 1;
-          } else if (activeId) {
-            if (n.id === activeId) {
-              glowRadius = 12;
-              nodeAlpha = 1;
-            } else if (activeNeighbors && activeNeighbors.has(n.id)) {
-              nodeAlpha = 0.9;
-            } else {
-              nodeAlpha = 0.3;
-            }
-          }
-
-          ctx.globalAlpha = nodeAlpha;
-
-          if (glowRadius > 0) {
-            ctx.shadowColor = n.color;
-            ctx.shadowBlur = glowRadius / k;
-          }
-
-          // Highlight the focused file with a ring
-          if (n.id === focusedFileId) {
-            ctx.strokeStyle = n.color;
-            ctx.lineWidth = 2.5 / k;
-            ctx.beginPath();
-            ctx.arc(n.x, n.y, n.radius + 4 / k, 0, Math.PI * 2);
-            ctx.stroke();
-          }
-
-          ctx.fillStyle = n.color;
-          ctx.beginPath();
-          ctx.arc(n.x, n.y, n.radius, 0, Math.PI * 2);
-          ctx.fill();
-
-          if (glowRadius > 0) {
-            ctx.shadowColor = 'transparent';
-            ctx.shadowBlur = 0;
-          }
-
-          // Border ring for file/external
-          if (n._kind === 'file' || n._kind === 'external') {
-            ctx.strokeStyle = isLight ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.15)';
-            ctx.lineWidth = 0.5 / k;
-            ctx.stroke();
-          }
-        }
-
-        // Draw labels
-        const showLabelsThreshold = 0.3;
-        if (k > showLabelsThreshold) {
-          const labelAlphaBase = Math.min(1, (k - showLabelsThreshold) / 0.5);
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'top';
-
-          for (const n of fNodes) {
-            let showLabel = false;
-            let labelAlpha = labelAlphaBase;
-
-            if (n.id === focusedFileId) {
-              showLabel = true;
-              labelAlpha = 1;
-            } else if (n.id === activeId) {
-              showLabel = true;
-              labelAlpha = 1;
-            } else if (activeNeighbors && activeNeighbors.has(n.id)) {
-              showLabel = true;
-              labelAlpha = 0.85;
-            } else {
-              showLabel = true;
-              labelAlpha *= 0.8;
-            }
-
-            if (!showLabel) continue;
-
-            const fontSize = Math.max(9, Math.min(14, 12)) / k;
-            ctx.font = '500 ' + fontSize + 'px Inter, system-ui, sans-serif';
-            ctx.globalAlpha = labelAlpha;
-            ctx.fillStyle = isLight ? '#18181b' : '#e6e6eb';
-            ctx.fillText(n.label, n.x, n.y + n.radius + 4 / k);
-          }
-        }
-
-        ctx.restore();
-      }
-
       function fitFocusedView() {
-        if (!focusedSimulation) return;
-        const fNodes = focusedSimulation.nodes();
-        if (!fNodes.length) return;
-
+        if (!focusedFileId || !focusedNodeSet) return;
         let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-        for (const n of fNodes) {
+        for (const n of nodes) {
+          if (n._hidden) continue;
           if (n.x < minX) minX = n.x;
           if (n.x > maxX) maxX = n.x;
           if (n.y < minY) minY = n.y;
@@ -1391,7 +1234,7 @@
 
         let prevMinX, prevMinY, prevRangeX, prevRangeY;
         function computeBounds() {
-          const boundsNodes = focusedSimulation ? focusedSimulation.nodes() : nodes;
+          const boundsNodes = nodes;
           let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
           for (const n of boundsNodes) {
             if (n._hidden) continue;
@@ -1419,8 +1262,8 @@
           mmCtx.clearRect(0, 0, dims.w, dims.h);
           if (!computeBounds()) return;
 
-          const mmNodes = focusedSimulation ? focusedSimulation.nodes() : nodes;
-          const mmLinks = focusedLinks || links;
+          const mmNodes = nodes;
+          const mmLinks = links;
 
           // Draw edges
           mmCtx.globalAlpha = 0.12;
