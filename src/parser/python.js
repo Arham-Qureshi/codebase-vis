@@ -31,11 +31,24 @@ const DOCSTRING_QUERY = `
 (expression_statement (string) @doc)
 `;
 
+const queryCache = new Map();
+
+function getQueries(g) {
+  if (!queryCache.has(g)) {
+    queryCache.set(g, {
+      deps: new Parser.Query(g, DEPENDENCY_QUERY),
+      entities: new Parser.Query(g, ENTITY_QUERY),
+      methods: new Parser.Query(g, METHOD_QUERY),
+      docstrings: new Parser.Query(g, DOCSTRING_QUERY),
+    });
+  }
+  return queryCache.get(g);
+}
+
 export function extractDependencies(astRoot) {
   try {
-    const query = new Parser.Query(grammar, DEPENDENCY_QUERY);
-    const captures = query.captures(astRoot);
-
+    const { deps } = getQueries(grammar);
+    const captures = deps.captures(astRoot);
     return captures.map(c => c.node.text);
   } catch {
     return [];
@@ -45,12 +58,11 @@ export function extractDependencies(astRoot) {
 // extracts structured entities: { classes, functions, methods, docstrings }
 export function extractEntities(astRoot) {
   try {
-    const query = new Parser.Query(grammar, ENTITY_QUERY);
-    const captures = query.captures(astRoot);
+    const { entities, methods: methodQuery, docstrings: docQuery } = getQueries(grammar);
+    const captures = entities.captures(astRoot);
 
     const classes = captures.filter(c => c.name === 'class_name').map(c => c.node.text);
 
-    const methodQuery = new Parser.Query(grammar, METHOD_QUERY);
     const methodCaptures = methodQuery.captures(astRoot);
     const methods = methodCaptures.map(c => c.node.text);
 
@@ -62,7 +74,6 @@ export function extractEntities(astRoot) {
       .filter(c => c.name === 'func_name' && !methodKeys.has(`${c.node.startIndex}-${c.node.endIndex}`))
       .map(c => c.node.text);
 
-    const docQuery = new Parser.Query(grammar, DOCSTRING_QUERY);
     const docCaptures = docQuery.captures(astRoot);
     const docstrings = docCaptures.map(c => c.node.text).filter(t => t.startsWith('"""') || t.startsWith("'''") || t.startsWith('\"\"\"') || t.includes('\n'));
 
