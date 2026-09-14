@@ -58,11 +58,25 @@ const DOCSTRING_QUERY = `
 
 function stripQuotes(s) { return s.replace(/^['"`]|['"`]$/g, ''); }
 
-// extracts all dependency paths 
+const queryCache = new Map();
+
+function getQueries(lang) {
+  if (!queryCache.has(lang)) {
+    queryCache.set(lang, {
+      deps: new Parser.Query(lang, DEPENDENCY_QUERY),
+      entities: new Parser.Query(lang, ENTITY_QUERY),
+      methods: new Parser.Query(lang, METHOD_QUERY),
+      docstrings: new Parser.Query(lang, DOCSTRING_QUERY),
+    });
+  }
+  return queryCache.get(lang);
+}
+
+// extracts all dependency paths
 export function extractDependencies(astRoot, lang = grammar) {
     try {
-        const query = new Parser.Query(lang, DEPENDENCY_QUERY);
-        const captures = query.captures(astRoot);
+        const { deps } = getQueries(lang);
+        const captures = deps.captures(astRoot);
         const raw = captures.filter(c => !c.name.startsWith('_')).map(c => stripQuotes(c.node.text));
         return [...new Set(raw.filter(Boolean))];
     } catch {
@@ -73,25 +87,23 @@ export function extractDependencies(astRoot, lang = grammar) {
 // extracts structured entities: { classes, functions, methods, docstrings }
 export function extractEntities(astRoot, lang = grammar) {
     try {
-        const query = new Parser.Query(lang, ENTITY_QUERY);
-        const captures = query.captures(astRoot);
+        const { entities, methods, docstrings } = getQueries(lang);
+        const captures = entities.captures(astRoot);
 
         const classes = captures.filter(c => c.name === 'class_name').map(c => c.node.text);
         const functions = captures
             .filter(c => c.name === 'func_name' || c.name === 'arrow_name' || c.name === 'func_expr_name')
             .map(c => c.node.text);
 
-        const methodQuery = new Parser.Query(lang, METHOD_QUERY);
-        const methodCaptures = methodQuery.captures(astRoot);
-        const methods = methodCaptures.map(c => c.node.text);
+        const methodCaptures = methods.captures(astRoot);
+        const methodList = methodCaptures.map(c => c.node.text);
 
-        const docQuery = new Parser.Query(lang, DOCSTRING_QUERY);
-        const docCaptures = docQuery.captures(astRoot);
-        const docstrings = docCaptures
+        const docCaptures = docstrings.captures(astRoot);
+        const docstringList = docCaptures
             .map(c => c.node.text)
             .filter(t => t.startsWith('/**'));
 
-        return { classes, functions, methods, docstrings };
+        return { classes, functions, methods: methodList, docstrings: docstringList };
     } catch {
         return { classes: [], functions: [], methods: [], docstrings: [] };
     }
