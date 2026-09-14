@@ -1,8 +1,10 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import os from 'node:os';
 import { logger } from './logger.js';
 
 const CACHE_VERSION = 1;
+const STAT_BATCH = Math.min(os.availableParallelism() * 4, 100);
 const CACHE_FILENAME = '.cache.json';
 const MAX_CACHE_ENTRIES = 100000;
 
@@ -54,22 +56,33 @@ export async function splitFilesByCache(discoveredFiles, cache) {
   const toParse = [];
   const cachedResults = [];
 
-  for (const filePath of discoveredFiles) {
-    const relPath = path.relative(process.cwd(), filePath);
-    const entry = cache[relPath];
-    if (!entry) {
-      toParse.push(filePath);
-      missCount++;
-      continue;
-    }
+  for (let i = 0; i < discoveredFiles.length; i += STAT_BATCH) {
+    const batch = discoveredFiles.slice(i, i + STAT_BATCH);
+    const stats = await Promise.allSettled(batch.map(f => fs.stat(f)));
 
-    try {
-      const stat = await fs.stat(filePath);
-      if (stat.mtimeMs === entry.mtime && stat.size === entry.size) {
-        if (entry.data !== undefined && entry.data !== null &&
-            typeof entry.data.id === 'string') {
-          cachedResults.push(entry.data);
-          hitCount++;
+    for (let j = 0; j < batch.length; j++) {
+      const filePath = batch[j];
+      const relPath = path.relative(process.cwd(), filePath);
+      const entry = cache[relPath];
+      const statResult = stats[j];
+
+      if (!entry) {
+        toParse.push(filePath);
+        missCount++;
+        continue;
+      }
+
+      if (statResult.status === 'fulfilled') {
+        const stat = statResult.value;
+        if (stat.mtimeMs === entry.mtime && stat.size === entry.size) {
+          if (entry.data !== undefined && entry.data !== null &&
+              typeof entry.data.id === 'string') {
+            cachedResults.push(entry.data);
+            hitCount++;
+          } else {
+            toParse.push(filePath);
+            staleCount++;
+          }
         } else {
           toParse.push(filePath);
           staleCount++;
@@ -78,10 +91,6 @@ export async function splitFilesByCache(discoveredFiles, cache) {
         toParse.push(filePath);
         staleCount++;
       }
-    } catch (err) {
-      logger.warn('Cache', `Stat failed for ${path.relative(process.cwd(), filePath)} — treating as miss`);
-      toParse.push(filePath);
-      staleCount++;
     }
   }
 
@@ -115,17 +124,25 @@ export async function buildUpdatedCache(oldCache, toParseFiles, parsedResults, s
 
   let addedCount = 0;
   let failedCount = 0;
-  for (const result of parsedResults) {
-    if (result && result.id) {
-      try {
-        const stat = await fs.stat(result.id);
+
+  const toStat = parsedResults.filter(r => r && r.id);
+  for (let i = 0; i < toStat.length; i += STAT_BATCH) {
+    const batch = toStat.slice(i, i + STAT_BATCH);
+    const stats = await Promise.allSettled(batch.map(r => fs.stat(r.id)));
+
+    for (let j = 0; j < batch.length; j++) {
+      const result = batch[j];
+      const statResult = stats[j];
+
+      if (statResult.status === 'fulfilled') {
+        const stat = statResult.value;
         updated[result.id] = {
           mtime: stat.mtimeMs,
           size: stat.size,
           data: result,
         };
         addedCount++;
-      } catch (err) {
+      } else {
         logger.warn('Cache', `Stat failed for parsed result ${result.id} — removing from cache`);
         delete updated[result.id];
         failedCount++;
