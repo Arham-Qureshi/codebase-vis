@@ -13,6 +13,7 @@ import { grammar as javaGrammar, extractDependencies as javaExtractDeps, extract
 import { extractDependencies as mdExtractDeps, extractEntities as mdExtractEnts } from './markdown.js';
 import { extractDependencies as jsonExtractDeps, extractEntities as jsonExtractEnts } from './json.js';
 import { extractDependencies as imgExtractDeps, extractEntities as imgExtractEnts } from './image.js';
+import { parentPort } from 'worker_threads';
 
 const GRAMMAR_MAP = {
   '.js': { grammar: jsGrammar, extractDeps: jsExtractDeps, extractEnts: jsExtractEnts },
@@ -77,16 +78,16 @@ async function parseFile(filePath) {
   return { id: relPath, dependencies: dependencies || [], entities: entities || [] };
 }
 
-process.on('message', async (msg) => {
+parentPort.on('message', async (msg) => {
   if (typeof msg !== 'string') {
-    process.send({ id: 'unknown', error: true });
+    parentPort.postMessage({ id: 'unknown', error: true });
     return;
   }
   try {
     const result = await parseFile(msg);
     const id = result ? result.id : path.relative(process.cwd(), msg);
-    process.send(result || { id, error: true });
+    parentPort.postMessage(result || { id, error: true });
   } catch {
-    process.send({ id: path.relative(process.cwd(), msg), error: true });
+    parentPort.postMessage({ id: path.relative(process.cwd(), msg), error: true });
   }
 });
