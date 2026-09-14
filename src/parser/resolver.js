@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const _aliasCache = new Map();
+const MAX_STAT_CACHE = 50000;
+const _statCache = new Map();
 
 function stripJsonc(text) {
   const pattern = /"(?:\\.|[^"\\])*"|\/\*.*?\*\/|\/\/[^\n]*/gs;
@@ -57,13 +59,45 @@ export function loadTsconfigAliases(startDir) {
   return {};
 }
 
-export function clearResolverCache() { _aliasCache.clear(); }
+export function clearResolverCache() {
+  _aliasCache.clear();
+  _statCache.clear();
+}
 
 const JS_EXTS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.svelte'];
 const JS_INDEX = ['index.ts', 'index.tsx', 'index.js', 'index.jsx'];
 
-function existsFile(p) { try { return fs.statSync(p).isFile(); } catch { return false; } }
-function existsDir(p) { try { return fs.statSync(p).isDirectory(); } catch { return false; } }
+function existsFile(p) {
+  if (_statCache.has(p)) return _statCache.get(p).isFile;
+  if (_statCache.size >= MAX_STAT_CACHE) {
+    const firstKey = _statCache.keys().next().value;
+    _statCache.delete(firstKey);
+  }
+  try {
+    const s = fs.statSync(p);
+    _statCache.set(p, { isFile: s.isFile(), isDir: s.isDirectory() });
+    return s.isFile();
+  } catch {
+    _statCache.set(p, { isFile: false, isDir: false });
+    return false;
+  }
+}
+
+function existsDir(p) {
+  if (_statCache.has(p)) return _statCache.get(p).isDir;
+  if (_statCache.size >= MAX_STAT_CACHE) {
+    const firstKey = _statCache.keys().next().value;
+    _statCache.delete(firstKey);
+  }
+  try {
+    const s = fs.statSync(p);
+    _statCache.set(p, { isFile: s.isFile(), isDir: s.isDirectory() });
+    return s.isDirectory();
+  } catch {
+    _statCache.set(p, { isFile: false, isDir: false });
+    return false;
+  }
+}
 function stripQuotes(s) { return s.replace(/^['"`]|['"`]$/g, ''); }
 
 function tryResolveFile(basePath) {
