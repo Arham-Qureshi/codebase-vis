@@ -14,10 +14,22 @@ const ENTITY_QUERY = `
 (method_declaration name: (field_identifier) @method_name)
 `;
 
+const queryCache = new Map();
+
+function getQueries(g) {
+  if (!queryCache.has(g)) {
+    queryCache.set(g, {
+      deps: new Parser.Query(g, DEPENDENCY_QUERY),
+      entities: new Parser.Query(g, ENTITY_QUERY),
+    });
+  }
+  return queryCache.get(g);
+}
+
 export function extractDependencies(astRoot) {
   try {
-    const query = new Parser.Query(grammar, DEPENDENCY_QUERY);
-    const captures = query.captures(astRoot);
+    const { deps } = getQueries(grammar);
+    const captures = deps.captures(astRoot);
     return captures.map(c => c.node.text.replace(/^["`]|["`]$/g, ''));
   } catch {
     return [];
@@ -26,8 +38,8 @@ export function extractDependencies(astRoot) {
 
 export function extractEntities(astRoot) {
   try {
-    const query = new Parser.Query(grammar, ENTITY_QUERY);
-    const captures = query.captures(astRoot);
+    const { entities } = getQueries(grammar);
+    const captures = entities.captures(astRoot);
     const classes = captures.filter(c => c.name === 'class_name').map(c => c.node.text);
     const functions = captures.filter(c => c.name === 'func_name').map(c => c.node.text);
     const methods = captures.filter(c => c.name === 'method_name').map(c => c.node.text);
