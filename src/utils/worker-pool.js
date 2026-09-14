@@ -1,4 +1,4 @@
-import { fork } from 'node:child_process';
+import { Worker } from 'node:worker_threads';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { logger } from './logger.js';
@@ -7,6 +7,7 @@ export class WorkerPool {
   #workers = [];
   #free = [];
   #queue = [];
+  #head = 0;
   #activeCount = 0;
   #workerPath;
   #pending = new Map();
@@ -14,7 +15,7 @@ export class WorkerPool {
   #crashCount = 0;
   #lastCrashTime = 0;
   #maxCrashWindow = 10000;
-  #maxQueueSize = 10000;
+  #maxQueueSize = 100000;
   #taskTimeout = 30000;
   #timeoutKilled = new Set();
 
@@ -28,13 +29,13 @@ export class WorkerPool {
   }
 
   #addWorker() {
-    const worker = fork(this.#workerPath);
+    const worker = new Worker(this.#workerPath);
     this.#workers.push(worker);
     this.#free.push(worker);
-    logger.debug('Pool', `Worker spawned — pid=${worker.pid}, poolSize=${this.#workers.length}`);
+    logger.debug('Pool', `Worker spawned — poolSize=${this.#workers.length}`);
 
     const replace = () => {
-      logger.debug('Pool', `Worker exit/error — pid=${worker.pid}, timeoutKilled=${this.#timeoutKilled.has(worker)}`);
+      logger.debug('Pool', `Worker exit/error — timeoutKilled=${this.#timeoutKilled.has(worker)}`);
 
       clearTimeout(this.#timeoutIds.get(worker));
       this.#timeoutIds.delete(worker);
@@ -44,7 +45,7 @@ export class WorkerPool {
         this.#pending.delete(worker);
         this.#activeCount--;
         pending.reject(new Error('Worker process terminated unexpectedly'));
-        logger.warn('Pool', `Task rejected due to worker death — pid=${worker.pid}`);
+        logger.warn('Pool', `Task rejected due to worker death`);
       }
 
       const idx = this.#workers.indexOf(worker);
@@ -56,7 +57,7 @@ export class WorkerPool {
 
       if (this.#timeoutKilled.has(worker)) {
         this.#timeoutKilled.delete(worker);
-        logger.info('Pool', `Replacing worker killed by timeout — pid=${worker.pid}`);
+        logger.info('Pool', `Replacing worker killed by timeout`);
         this.#addWorker();
         this.#drain();
         return;
@@ -69,7 +70,7 @@ export class WorkerPool {
       }
       this.#lastCrashTime = now;
       this.#crashCount++;
-      logger.warn('Pool', `Worker crashed — pid=${worker.pid}, crashCount=${this.#crashCount}/${3}, activeCount=${this.#activeCount}, queueLength=${this.#queue.length}`);
+      logger.warn('Pool', `Worker crashed — crashCount=${this.#crashCount}/${3}, activeCount=${this.#activeCount}, queueLength=${this.#queue.length - this.#head}`);
       if (this.#crashCount > 3) {
         logger.error('Pool', `Too many crashes (${this.#crashCount}) — stopping replacements`);
         return;
@@ -80,21 +81,22 @@ export class WorkerPool {
     };
 
     worker.on('exit', (code) => {
-      logger.debug('Pool', `Worker exit event — pid=${worker.pid}, code=${code}`);
+      logger.debug('Pool', `Worker exit event — code=${code}`);
       if (code !== 0) replace();
     });
     worker.on('error', (err) => {
-      logger.error('Pool', `Worker error event — pid=${worker.pid}`);
+      logger.error('Pool', `Worker error event`);
       replace();
     });
   }
 
   run(task) {
-    if (this.#queue.length >= this.#maxQueueSize) {
-      logger.warn('Pool', `Queue full (${this.#queue.length}) — rejecting task: ${path.relative(process.cwd(), task)}`);
+    const effectiveLength = this.#queue.length - this.#head;
+    if (effectiveLength >= this.#maxQueueSize) {
+      logger.warn('Pool', `Queue full (${effectiveLength}) — rejecting task: ${path.relative(process.cwd(), task)}`);
       return Promise.reject(new Error('Task queue full. Try increasing --jobs or reducing files.'));
     }
-    logger.debug('Pool', `Task enqueued — queueLength=${this.#queue.length + 1}, activeCount=${this.#activeCount}, task=${path.relative(process.cwd(), task)}`);
+    logger.debug('Pool', `Task enqueued — queueLength=${effectiveLength + 1}, activeCount=${this.#activeCount}, task=${path.relative(process.cwd(), task)}`);
     return new Promise((resolve, reject) => {
       this.#queue.push({ task, resolve, reject });
       this.#drain();
@@ -102,19 +104,19 @@ export class WorkerPool {
   }
 
   #drain() {
-    while (this.#free.length > 0 && this.#queue.length > 0) {
+    while (this.#free.length > 0 && this.#head < this.#queue.length) {
       const worker = this.#free.pop();
-      const { task, resolve, reject } = this.#queue.shift();
+      const { task, resolve, reject } = this.#queue[this.#head++];
       this.#activeCount++;
-      logger.debug('Pool', `Task assigned — pid=${worker.pid}, task=${path.relative(process.cwd(), task)}, activeCount=${this.#activeCount}, queueRemaining=${this.#queue.length}`);
+      logger.debug('Pool', `Task assigned — task=${path.relative(process.cwd(), task)}, activeCount=${this.#activeCount}, queueRemaining=${this.#queue.length - this.#head}`);
 
       const timeout = setTimeout(() => {
         this.#timeoutIds.delete(worker);
         this.#timeoutKilled.add(worker);
-        worker.kill('SIGKILL');
+        worker.terminate();
         this.#pending.delete(worker);
         this.#activeCount--;
-        logger.warn('Pool', `Task timed out — pid=${worker.pid}, task=${path.relative(process.cwd(), task)}, timeout=${this.#taskTimeout}ms`);
+        logger.warn('Pool', `Task timed out — task=${path.relative(process.cwd(), task)}, timeout=${this.#taskTimeout}ms`);
         reject(new Error(`Task timed out after ${this.#taskTimeout}ms`));
         this.#drain();
       }, this.#taskTimeout);
@@ -127,7 +129,7 @@ export class WorkerPool {
         worker.removeListener('message', onMessage);
         this.#activeCount--;
         this.#free.push(worker);
-        logger.debug('Pool', `Task completed — pid=${worker.pid}, task=${path.relative(process.cwd(), task)}, activeCount=${this.#activeCount}`);
+        logger.debug('Pool', `Task completed — task=${path.relative(process.cwd(), task)}, activeCount=${this.#activeCount}`);
         resolve(result);
 
         this.#drain();
@@ -136,11 +138,16 @@ export class WorkerPool {
       this.#pending.set(worker, { resolve, reject });
       worker.on('message', onMessage);
 
-      worker.send(task);
+      worker.postMessage(task);
+    }
+    // Compact queue when fully drained
+    if (this.#head > 0 && this.#head >= this.#queue.length) {
+      this.#queue.length = 0;
+      this.#head = 0;
     }
   }
 
-  get pending() { return this.#queue.length; }
+  get pending() { return this.#queue.length - this.#head; }
   get active() { return this.#activeCount; }
 
   async terminate() {
@@ -151,11 +158,12 @@ export class WorkerPool {
     this.#timeoutIds.clear();
     const workerCount = this.#workers.length;
     for (const w of this.#workers) {
-      w.kill('SIGTERM');
+      w.terminate();
     }
     this.#workers = [];
     this.#free = [];
     this.#queue = [];
+    this.#head = 0;
     this.#activeCount = 0;
     this.#pending.clear();
     logger.info('Pool', `Terminated — ${workerCount} workers killed, ${timeoutCount} timeouts cleared`);
