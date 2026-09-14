@@ -36,23 +36,34 @@ const NAV_DEP_QUERY = `
     (#match? @_attr "^(href|src|action|poster|data-src)$")))
 `;
 
+const queryCache = new Map();
+
+function getQueries(g) {
+  if (!queryCache.has(g)) {
+    queryCache.set(g, {
+      elementDep: new Parser.Query(g, ELEMENT_DEP_QUERY),
+      scriptDep: new Parser.Query(g, SCRIPT_DEP_QUERY),
+      navDep: new Parser.Query(g, NAV_DEP_QUERY),
+    });
+  }
+  return queryCache.get(g);
+}
+
 export function extractDependencies(astRoot, _grammar, includeNav = false) {
   try {
-    const elementQuery = new Parser.Query(grammar, ELEMENT_DEP_QUERY);
-    const scriptQuery = new Parser.Query(grammar, SCRIPT_DEP_QUERY);
+    const { elementDep, scriptDep, navDep } = getQueries(grammar);
 
-    const elementPaths = elementQuery.captures(astRoot)
+    const elementPaths = elementDep.captures(astRoot)
       .filter(c => c.name === 'path')
       .map(c => c.node.text);
 
-    const scriptPaths = scriptQuery.captures(astRoot)
+    const scriptPaths = scriptDep.captures(astRoot)
       .filter(c => c.name === 'path')
       .map(c => c.node.text);
 
     let navPaths = [];
     if (includeNav) {
-      const navQuery = new Parser.Query(grammar, NAV_DEP_QUERY);
-      navPaths = navQuery.captures(astRoot).filter(c => c.name === 'path').map(c => c.node.text);
+      navPaths = navDep.captures(astRoot).filter(c => c.name === 'path').map(c => c.node.text);
     }
 
     return [...elementPaths, ...scriptPaths, ...navPaths];
