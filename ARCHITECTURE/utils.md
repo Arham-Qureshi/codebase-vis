@@ -13,7 +13,7 @@ Four independent utility modules providing filesystem sandboxing, file discovery
 | `src/utils/file-system.js` | `getOutDirPath()`, `createOutDir()`, `safeWriteFile()` | Sandboxed output directory management |
 | `src/utils/traversal.js` | `discoverFiles()` | Recursive file walker with ignore filter, size cap, extension filter |
 | `src/utils/cache.js` | `loadCache()`, `saveCache()`, `splitFilesByCache()`, `getStalePaths()`, `buildUpdatedCache()` | Incremental parse cache with mtime + size fingerprints |
-| `src/utils/worker-pool.js` | `WorkerPool` class | Fork-based parallel worker pool with crash recovery |
+| `src/utils/worker-pool.js` | `WorkerPool` class | Worker thread pool with crash recovery |
 
 ## file-system.js
 
@@ -245,7 +245,7 @@ flowchart TD
 
     CONSTRUCTOR --> INIT["for i = 0 to size:<br/>#addWorker()"]
 
-    ADD_WORKER --> FORK["child_process.fork(workerPath)"]
+    ADD_WORKER --> FORK["new Worker(workerPath)<br/>(worker_threads)"]
     FORK --> REGISTER["worker.on('exit', replace)<br/>worker.on('error', replace)"]
     REGISTER --> TRACK["#workers.push(worker)<br/>#free.push(worker)"]
 
@@ -291,13 +291,13 @@ sequenceDiagram
     participant W as Worker (parse-worker.js)
 
     Note over P: WorkerPool constructor
-    P->>W: fork(parse-worker.js)
+    P->>W: new Worker(parse-worker.js)
 
     Note over P: pool.run(filePath)
     P->>W: worker.send(filePath)
 
     Note over W: parse file using tree-sitter
-    W-->>P: process.send({ id, dependencies, entities })
+    W-->>P: parentPort.postMessage({ id, dependencies, entities })
 
     Note over P: onMessage handler:
     Note over P: resolve(result)
@@ -306,7 +306,7 @@ sequenceDiagram
     W-->>P: exit code ≠ 0
     Note over P: replace():
     Note over P: reject pending promise
-    P->>W: fork(replacement) ← new worker
+    P->>W: new Worker(replacement) ← new worker
 ```
 
 ### Worker Lifecycle
@@ -314,7 +314,7 @@ sequenceDiagram
 ```mermaid
 flowchart LR
     subgraph startup["Startup"]
-        FORK["child_process.fork()"]
+        FORK["new Worker(workerPath)<br/>(worker_threads)"]
         REG["register exit + error handlers"]
         PUSH["add to #workers + #free"]
     end
@@ -335,7 +335,7 @@ flowchart LR
     subgraph crash["Crash Recovery"]
         EXIT["exit code ≠ 0"]
         REJECT_P["reject pending promise"]
-        REPLACE_FN["remove + fork replacement"]
+        REPLACE_FN["remove + spawn replacement"]
         DRAIN_Q2["#drain()"]
     end
 
