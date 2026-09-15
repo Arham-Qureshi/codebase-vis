@@ -122,7 +122,7 @@ flowchart TD
     TOPARSE2 --> PARSE
 
     PARSE -->|yes| WORKER["spinner: parseFileBatch()"]
-    WORKER --> POOL["Worker Pool<br/>(CPU - 1 forks)"]
+    WORKER --> POOL["Worker Pool<br/>(CPU - 1 workers)"]
     POOL --> RESULTS["freshResults[]"]
 
     PARSE -->|no| MERGE
