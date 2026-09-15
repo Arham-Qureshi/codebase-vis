@@ -89,6 +89,32 @@ codebase-vis explain --retry            # retry failed clusters
 
 This is the only command that makes network requests. Everything else runs 100% locally.
 
+### `hook <install|uninstall|status>`
+
+Manages executable hooks for AI coding agents. Intercepts shell commands and redirects search queries to the graph for instant answers.
+
+```bash
+codebase-vis hook install              # interactive TUI
+codebase-vis hook install --all        # install for all platforms
+codebase-vis hook install --platforms claude,cursor
+codebase-vis hook uninstall            # interactive removal
+codebase-vis hook uninstall --all      # remove all hooks
+codebase-vis hook status               # show what's installed
+```
+
+**Supported platforms:**
+
+| Platform | Hook mechanism | Config location |
+|---|---|---|
+| Claude Code | PreToolUse hook | `.claude/settings.local.json` |
+| Cursor | beforeShellExecution | `.cursor/hooks.json` |
+| OpenCode | Plugin | `.opencode/plugins/codebase-vis-hook.ts` |
+| GitHub Copilot | preToolUse hook | `.github/hooks/codebase-vis.json` |
+| Gemini CLI | BeforeTool hook | `.gemini/settings.json` |
+| MCP | stdio server | `.mcp.json` |
+
+**How it works:** When you run `grep`, `rg`, `find`, `ag`, or `ack`, the hook checks `codebase-out/graph.json` for matching symbols. If found, it returns the graph answer directly — no shell search needed. Append `# --graph-tried` to any command to bypass the hook.
+
 ### `clean`
 
 Deletes the `codebase-out/` directory.

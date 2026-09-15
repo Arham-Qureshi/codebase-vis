@@ -10,7 +10,7 @@ export function detectWorkspace(cwd) {
       fs.existsSync(path.join(root, '.opencode')) ||
       fs.existsSync(path.join(root, 'opencode.json')) ||
       fs.existsSync(path.join(root, 'opencode.jsonc')),
-    codex: fs.existsSync(path.join(root, 'AGENTS.md')),
+    copilot: fs.existsSync(path.join(root, '.github')),
     gemini: fs.existsSync(path.join(root, 'GEMINI.md')) || fs.existsSync(path.join(root, '.gemini')),
     mcp: true,
   };

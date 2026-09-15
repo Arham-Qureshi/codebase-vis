@@ -303,7 +303,7 @@ const hook = program
   .command('hook')
   .description(
     `${D('Manage agent hooks (graph-first interception)')}\n` +
-    `${D('Installs PreToolUse hooks for Claude Code, Cursor, OpenCode, Codex/Aider, Gemini CLI.')}`
+    `${D('Installs PreToolUse hooks for Claude Code, Cursor, OpenCode, GitHub Copilot, Gemini CLI.')}`
   );
 
 hook
@@ -313,14 +313,14 @@ hook
     `${D('Auto-detects workspace markers and shows interactive TUI selector.')}`
   )
   .option('--all', 'Install all platforms without prompting')
-  .option('--platforms <list>', 'Comma-separated platforms: claude,cursor,opencode,codex,gemini,mcp')
+  .option('--platforms <list>', 'Comma-separated platforms: claude,cursor,opencode,copilot,gemini,mcp')
   .action(hookInstallCommand);
 
 hook
   .command('uninstall')
   .description(
     `${D('Remove hooks')}\n` +
-    `${D('Deletes hook configs from .claude/, .cursor/, .opencode/, AGENTS.md, GEMINI.md.')}`
+    `${D('Deletes hook configs from .claude/, .cursor/, .opencode/, .github/hooks/, .gemini/hooks/.')}`
   )
   .option('--all', 'Remove all without prompting')
   .option('--platforms <list>', 'Comma-separated platforms to remove')

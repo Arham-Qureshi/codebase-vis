@@ -12,7 +12,7 @@ describe('detectWorkspace', () => {
     assert.equal(d.claude, false);
     assert.equal(d.cursor, false);
     assert.equal(d.opencode, false);
-    assert.equal(d.codex, false);
+    assert.equal(d.copilot, false);
     assert.equal(d.gemini, false);
     assert.equal(d.mcp, true);
     await fs.rm(dir, { recursive: true, force: true });
@@ -58,11 +58,11 @@ describe('detectWorkspace', () => {
     await fs.rm(dir, { recursive: true, force: true });
   });
 
-  it('detects codex via AGENTS.md', async () => {
+  it('detects copilot via .github dir', async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'det-'));
-    await fs.writeFile(path.join(dir, 'AGENTS.md'), '# agents');
+    await fs.mkdir(path.join(dir, '.github'));
     const d = detectWorkspace(dir);
-    assert.equal(d.codex, true);
+    assert.equal(d.copilot, true);
     await fs.rm(dir, { recursive: true, force: true });
   });
 

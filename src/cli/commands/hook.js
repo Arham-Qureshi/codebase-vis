@@ -42,8 +42,8 @@ export async function hookUninstallCommand(options = {}) {
       .split(',')
       .map((s) => s.trim().toLowerCase())
       .filter(Boolean);
-    const valid = raw.filter((k) => ['claude', 'cursor', 'opencode', 'codex', 'gemini', 'mcp'].includes(k));
-    const invalid = raw.filter((k) => !['claude', 'cursor', 'opencode', 'codex', 'gemini', 'mcp'].includes(k));
+    const valid = raw.filter((k) => ['claude', 'cursor', 'opencode', 'copilot', 'gemini', 'mcp'].includes(k));
+    const invalid = raw.filter((k) => !['claude', 'cursor', 'opencode', 'copilot', 'gemini', 'mcp'].includes(k));
     if (invalid.length > 0) {
       p.log.warn(pc.yellow(`Ignoring invalid platforms: ${invalid.join(', ')}`));
     }
@@ -88,7 +88,7 @@ export function registerHookCommand(program) {
     .command('install')
     .description('Install hooks for detected AI agents')
     .option('--all', 'Install all platforms without prompting')
-    .option('--platforms <list>', 'Comma-separated platforms: claude,cursor,opencode,codex,gemini,mcp')
+    .option('--platforms <list>', 'Comma-separated platforms: claude,cursor,opencode,copilot,gemini,mcp')
     .action(hookInstallCommand);
   hook
     .command('uninstall')
