@@ -22,7 +22,7 @@ flowchart LR
     subgraph PARSE["Parser Layer"]
         TRAV["discoverFiles()"]
         CACHE["splitFilesByCache()"]
-        POOL["Worker Pool<br/>(fork × CPU-1)"]
+        POOL["Worker Pool<br/>(worker_threads × CPU-1)"]
         TREE["tree-sitter AST queries<br/>per language"]
         PARSE_OUT["{ id, dependencies[], entities{} }"]
     end
@@ -43,7 +43,7 @@ flowchart LR
 
     subgraph VIS["Visualizer (Browser)"]
         BOOT["boot() → fetch graph.json"]
-        NET["vis.Network<br/>(ForceAtlas2 physics)"]
+        NET["D3 force-directed layout"]
         UI["Sidebar: search, filters,<br/>legend, cycles, info panel"]
         MINI["Minimap canvas"]
     end
@@ -82,7 +82,7 @@ flowchart LR
     P -->|buildGraph| G["Graphology Graph<br/>(multi, directed,~ 163 nodes avg)"]
     G -->|enrichNodes| GE["Enriched Graph<br/>(+ community, color,<br/>language, size, position)"]
     GE -->|exportGraphToJson| GJ["graph.json<br/>(JSON serialization)"]
-    GJ -->|boot() in browser| V["vis.Network<br/>(interactive visualization)"]
+    GJ -->|boot() in browser| V["D3 force layout<br/>(interactive visualization)"]
     GJ -->|detectCycles| CC["raw cycles<br/>string[][]"]
     CC -->|enrichCycles| CJ["cycles.json<br/>(files, edges, labels)"]
 ```
@@ -94,7 +94,7 @@ flowchart LR
 | `ARCHITECTURE/cli.md` | Commander setup, all 8 commands, shared utilities, error handling |
 | `ARCHITECTURE/parser.md` | File discovery, cache, worker pool, tree-sitter parsers per language |
 | `ARCHITECTURE/graph.md` | Graph builder, Louvain enricher, cycle detector, JSON exporter |
-| `ARCHITECTURE/visualizer.md` | graph.html boot sequence, vis-network, sidebar, minimap, cycles overlay |
+| `ARCHITECTURE/visualizer.md` | graph.html boot sequence, D3 force layout, sidebar, minimap, cycles overlay |
 | `ARCHITECTURE/utils.md` | Sandboxed file writes, traversal, cache CRUD, worker pool lifecycle |
 
 ## Project Map
@@ -223,12 +223,12 @@ sequenceDiagram
 
     loop for each uncached file
         CLI->>WP: pool.run(filePath)
-        WP->>P: fork() + send(filePath)
+        WP->>P: worker_threads
         P->>FS: readFile
         P->>P: tree-sitter parse
         P->>P: extractDependencies()
         P->>P: extractEntities()
-        P-->>WP: process.send(result)
+        P-->>WP: parentPort.postMessage(result)
         WP-->>CLI: resolve(result)
     end
 
@@ -246,7 +246,7 @@ sequenceDiagram
 
     U->>V: open http://localhost:3000
     V->>FS: fetch graph.json
-    V->>V: boot() → vis.Network
+    V->>V: boot() → D3 force simulation
     V->>V: ForceAtlas2 physics
     V->>V: stabilization done → freeze + minimap
     V->>FS: fetch cycles.json (non-blocking)
@@ -339,4 +339,4 @@ flowchart TD
 | @clack/prompts | Terminal UI (spinners, prompts, confirms) |
 | picocolors | Terminal coloring |
 | ignore | .gitignore-style pattern matching |
-| vis-network (CDN) | Browser graph rendering with ForceAtlas2 |
+| D3 (v7) | Browser graph rendering with force-directed layout |
