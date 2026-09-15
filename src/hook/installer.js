@@ -5,11 +5,11 @@ import { installClaude, isInstalledClaude, uninstallClaude } from './platforms/c
 import { installCursor, isInstalledCursor, uninstallCursor } from './platforms/cursor.js';
 import { installOpencode, isInstalledOpencode, uninstallOpencode } from './platforms/opencode.js';
 import {
-  installCodex,
+  installCopilot,
   installGemini,
-  isInstalledCodex,
+  isInstalledCopilot,
   isInstalledGemini,
-  uninstallCodex,
+  uninstallCopilot,
   uninstallGemini,
 } from './platforms/generic.js';
 import { installMcp, isInstalledMcp, uninstallMcp } from './platforms/mcp.js';
@@ -20,7 +20,7 @@ export function getHookStatus(cwd) {
     claude: isInstalledClaude(root),
     cursor: isInstalledCursor(root),
     opencode: isInstalledOpencode(root),
-    codex: isInstalledCodex(root),
+    copilot: isInstalledCopilot(root),
     gemini: isInstalledGemini(root),
     mcp: isInstalledMcp(root),
   };
@@ -30,14 +30,13 @@ export async function runHookInstaller(cwd, opts = {}) {
   const root = cwd || process.cwd();
   const detected = detectWorkspace(root);
 
-  // Non-interactive modes (for CI / testing / --all flag)
   if (opts.all) {
-    const all = ['claude', 'cursor', 'opencode', 'codex', 'gemini', 'mcp'];
+    const all = ['claude', 'cursor', 'opencode', 'copilot', 'gemini', 'mcp'];
     p.log.info(pc.dim(`Installing all hooks: ${all.join(', ')}`));
     return deployHooks(root, all);
   }
   if (opts.platforms && Array.isArray(opts.platforms) && opts.platforms.length > 0) {
-    const valid = opts.platforms.filter((k) => ['claude', 'cursor', 'opencode', 'codex', 'gemini', 'mcp'].includes(k));
+    const valid = opts.platforms.filter((k) => ['claude', 'cursor', 'opencode', 'copilot', 'gemini', 'mcp'].includes(k));
     if (valid.length === 0) {
       p.log.warn(pc.yellow(`No valid platforms in: ${opts.platforms.join(', ')}`));
       return [];
@@ -50,7 +49,7 @@ export async function runHookInstaller(cwd, opts = {}) {
     .filter(([k, v]) => v)
     .map(([k]) => k);
 
-  const ALL = ['claude', 'cursor', 'opencode', 'codex', 'gemini', 'mcp'];
+  const ALL = ['claude', 'cursor', 'opencode', 'copilot', 'gemini', 'mcp'];
   let selected;
   try {
     selected = await p.multiselect({
@@ -63,7 +62,7 @@ export async function runHookInstaller(cwd, opts = {}) {
         },
         {
           value: 'cursor',
-          label: 'Cursor (.cursor/rules/codebase-vis.mdc rule)',
+          label: 'Cursor (.cursor/hooks/ + .cursor/hooks.json)',
           hint: detected.cursor ? 'detected' : undefined,
         },
         {
@@ -71,8 +70,8 @@ export async function runHookInstaller(cwd, opts = {}) {
           label: 'OpenCode (.opencode/plugins/codebase-vis-hook.ts plugin)',
           hint: detected.opencode ? 'detected' : undefined,
         },
-        { value: 'codex', label: 'Codex / Aider (AGENTS.md)', hint: detected.codex ? 'detected' : undefined },
-        { value: 'gemini', label: 'Gemini CLI (GEMINI.md)', hint: detected.gemini ? 'detected' : undefined },
+        { value: 'copilot', label: 'GitHub Copilot (.github/hooks/ + hooks.json)', hint: detected.copilot ? 'detected' : undefined },
+        { value: 'gemini', label: 'Gemini CLI (.gemini/hooks/ + settings.json)', hint: detected.gemini ? 'detected' : undefined },
         { value: 'mcp', label: 'MCP (.mcp.json stdio server)', hint: detected.mcp ? 'detected' : undefined },
       ],
       initialValues,
@@ -119,19 +118,19 @@ async function deployHooks(root, selected) {
     }
     if (selected.includes('cursor')) {
       await installCursor(root);
-      deployed.push('.cursor/rules/codebase-vis.mdc');
+      deployed.push('.cursor/hooks/codebase-vis-hook.cjs + .cursor/hooks.json');
     }
     if (selected.includes('opencode')) {
       await installOpencode(root);
       deployed.push('.opencode/plugins/codebase-vis-hook.ts');
     }
-    if (selected.includes('codex')) {
-      await installCodex(root);
-      deployed.push('AGENTS.md (codebase-vis block)');
+    if (selected.includes('copilot')) {
+      await installCopilot(root);
+      deployed.push('.github/hooks/codebase-vis-hook.cjs + .github/hooks/codebase-vis.json');
     }
     if (selected.includes('gemini')) {
       await installGemini(root);
-      deployed.push('GEMINI.md (codebase-vis block)');
+      deployed.push('.gemini/hooks/codebase-vis-hook.cjs + .gemini/settings.json');
     }
     if (selected.includes('mcp')) {
       await installMcp(root);
@@ -151,11 +150,11 @@ async function deployHooks(root, selected) {
 
 export async function runHookUninstall(cwd, targets) {
   const root = cwd || process.cwd();
-  const toRemove = targets || ['claude', 'cursor', 'opencode', 'codex', 'gemini', 'mcp'];
+  const toRemove = targets || ['claude', 'cursor', 'opencode', 'copilot', 'gemini', 'mcp'];
   if (toRemove.includes('claude')) await uninstallClaude(root);
   if (toRemove.includes('cursor')) await uninstallCursor(root);
   if (toRemove.includes('opencode')) await uninstallOpencode(root);
-  if (toRemove.includes('codex')) await uninstallCodex(root);
+  if (toRemove.includes('copilot')) await uninstallCopilot(root);
   if (toRemove.includes('gemini')) await uninstallGemini(root);
   if (toRemove.includes('mcp')) await uninstallMcp(root);
   return toRemove;
@@ -176,10 +175,10 @@ export async function runHookUninstallSelective(cwd) {
       options: installed.map((key) => {
         const labels = {
           claude: 'Claude Code (.claude/settings.local.json)',
-          cursor: 'Cursor (.cursor/rules/codebase-vis.mdc)',
+          cursor: 'Cursor (.cursor/hooks/ + .cursor/hooks.json)',
           opencode: 'OpenCode (.opencode/plugins/codebase-vis-hook.ts)',
-          codex: 'Codex / Aider (AGENTS.md)',
-          gemini: 'Gemini CLI (GEMINI.md)',
+          copilot: 'GitHub Copilot (.github/hooks/ + hooks.json)',
+          gemini: 'Gemini CLI (.gemini/hooks/ + settings.json)',
           mcp: 'MCP (.mcp.json stdio server)',
         };
         return { value: key, label: labels[key] || key };
