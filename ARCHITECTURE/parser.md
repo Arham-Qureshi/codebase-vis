@@ -42,7 +42,7 @@ flowchart TD
 
     subgraph PARSER["Orchestration"]
         IDX["index.js<br/>parseFile()<br/>parseFileBatch()"]
-        PW["parse-worker.js<br/>(forked child process)"]
+        PW["parse-worker.js<br/>(worker thread)"]
         WP["WorkerPool<br/>src/utils/worker-pool.js"]
     end
 
@@ -129,7 +129,7 @@ flowchart LR
         EMPTY -->|no| PARSE["parser.parse(content)<br/>→ CST rootNode"]
         PARSE --> DEPS["config.extractDeps(rootNode, grammar)<br/>→ string[]"]
         DEPS --> ENTS["config.extractEnts(rootNode, grammar)<br/>→ { classes, functions, methods, docstrings }"]
-        ENTS --> RESULT["process.send({ id, dependencies, entities })"]
+        ENTS --> RESULT["parentPort.postMessage({ id, dependencies, entities })"]
     end
 
     subgraph parent["index.js"]
@@ -150,7 +150,7 @@ flowchart TD
 
     POOL --> SPAWN["#addWorker() × numWorkers"]
 
-    SPAWN --> FORK["child_process.fork(workerPath)"]
+    SPAWN --> FORK["new Worker(workerPath)<br/>(worker_threads)"]
     FORK --> REG_EVENTS["worker.on('exit', replace)<br/>worker.on('error', replace)"]
     REG_EVENTS --> PUSH["push to #workers + #free"]
 
@@ -314,14 +314,14 @@ sequenceDiagram
     participant W2 as Worker 2
 
     Note over P: constructor(2, workerURL)
-    P->>W1: fork(workerPath)
-    P->>W2: fork(workerPath)
+    P->>W1: new Worker(workerPath)
 
+    P->>W2: new Worker(workerPath)
     Note over M: run(taskA)
     M->>P: pool.run(taskA)
     P->>W1: worker.send(taskA)
     Note over W1: parse file
-    W1-->>P: process.send(result)
+    W1-->>P: parentPort.postMessage(result)
     P-->>M: resolve(result)
 
     Note over M: run(taskB) + run(taskC)
@@ -330,16 +330,16 @@ sequenceDiagram
     M->>P: pool.run(taskC)
     Note over P: no free workers<br/>→ queue taskC
 
-    W2-->>P: process.send(resultB)
+    W2-->>P: parentPort.postMessage(resultB)
     P-->>M: resolve(resultB)
     Note over P: worker 2 freed<br/>→ drain queue
     P->>W2: worker.send(taskC)
 
     Note over W1: process.exit(1)
     W1-->>P: exit code ≠ 0
-    Note over P: replace():<br/>reject pending<br/>fork new worker
-    P->>W1: fork(workerPath) [replacement]
+    Note over P: replace():<br/>reject pending<br/>spawn new worker
 
+    P->>W1: new Worker(workerPath) [replacement]
     M->>P: pool.terminate()
     P->>W1: SIGTERM
     P->>W2: SIGTERM
