@@ -1,12 +1,12 @@
 # Visualizer Architecture
 
-The self-contained HTML visualizer (`graph.html`) that renders the dependency graph in the browser using vis-network.
+The self-contained HTML visualizer (`graph.html`) that renders the dependency graph in the browser using D3 force-directed layout.
 
 ## Module Overview
 
 `graph.html` is a single-file, self-contained page with no build step or server dependency. It embeds:
 
-- **vis-network** (loaded from CDN at unpkg.com) — the graph rendering engine with ForceAtlas2 physics
+- **D3 v7** (loaded locally from `vendor/d3.v7.min.js`) — the force simulation engine for physics-based graph layout
 - **~450 lines of CSS** — dark theme, glassmorphism sidebar, minimap, spinner, cycle toggle
 - **~560 lines of inline JavaScript** in a single `boot()` async function
 
@@ -72,9 +72,9 @@ flowchart TD
 
     DATASETS --> STATS["compute file/entity counts<br/>build communityMap"]
 
-    STATS --> NETWORK["new vis.Network(container,<br/>{ nodes, edges }, options)"]
+    STATS --> NETWORK["d3.forceSimulation(nodes)<br/>(force-directed layout)"]
 
-    NETWORK --> PHYSICS["vis network options<br/>physics: forceAtlas2Based<br/>solver: forceAtlas2Based<br/>gravitationalConstant: -120<br/>stabilization.iterations: 300"]
+    NETWORK --> PHYSICS["D3 force simulation options<br/>forceCenter, forceManyBody,<br/>forceLink, forceCollide"]
 
     PHYSICS --> ONCE["network.once('stabilizationIterationsDone')"]
 
@@ -97,18 +97,15 @@ flowchart TD
     FILTER_HANDLERS --> LOAD_CYCLES["loadCycles(network, nodesDS,<br/>edgesDS, rawEdges,<br/>nodeColorMap, rawNodes)<br/>(non-blocking, fire & forget)"]
 ```
 
-## vis.Network Configuration
+## D3 Force Configuration
 
 ```mermaid
 flowchart LR
-    subgraph physics["Physics: forceAtlas2Based"]
-        G["gravitationalConstant: -120"]
-        CG["centralGravity: 0.002"]
-        SL["springLength: 120"]
-        SC["springConstant: 0.06"]
-        D["damping: 0.4"]
-        AO["avoidOverlap: 0.8"]
-        SI["stabilization.iterations: 300"]
+    subgraph physics["D3 Force Simulation"]
+        FC["forceCenter()"]
+        FMB["forceManyBody()"]
+        FL["forceLink()"]
+        FCO["forceCollide()"]
     end
 
     subgraph interaction["Interaction"]
@@ -139,7 +136,7 @@ flowchart TD
         A_npm["npm: true | undefined"]
     end
 
-    subgraph vis["vis-network node"]
+    subgraph vis["D3 node"]
         V_label["label"]
         V_size["size"]
         V_font["font: { size }"]
@@ -180,7 +177,7 @@ flowchart LR
         R_rel2["relationship: 'imports'"]
     end
 
-    subgraph vis_edge["vis-network edge"]
+    subgraph vis_edge["D3 edge"]
         V_from["from"]
         V_to["to"]
         V_dashes["dashes: true | false"]
@@ -350,14 +347,14 @@ flowchart TD
 sequenceDiagram
     participant B as Browser
     participant G as graph.html
-    participant N as vis.Network
+    participant N as D3 force simulation
     participant D as DataSets
 
     B->>G: load page
     G->>N: boot()
     N-->>G: fetch graph.json
     G->>G: convert nodes + edges
-    G->>N: new vis.Network(options)
+    G->>N: d3.forceSimulation(options)
     Note over N: ForceAtlas2 physics runs
     N-->>G: stabilizationIterationsDone
     G->>N: freeze physics, setup minimap
@@ -416,10 +413,10 @@ flowchart LR
 | Decision | Rationale |
 |---|---|
 | **Self-contained HTML** | No build step, works offline, can be opened from disk or served via any HTTP server |
-| **vis-network from CDN** | Only runtime dependency — 600KB minified, no npm bundling needed |
+| **D3 v7 (local)** | Loaded from vendor/ directory — works offline, no CDN dependency |
 | **ForceAtlas2 physics** | Produces natural-looking graph layouts where connected nodes cluster together |
 | **Physics freezes after stabilization** | Stops jittering once stable; minimap stays in sync via `afterDrawing` event |
 | **Non-blocking cycles fetch** | The `boot()` function must never be blocked by optional data — loading overlay must always hide |
 | **CommunityMap + hiddenCommunities Set** | Toggling a community is O(n) via `nodesDS.update()` — no re-render needed |
-| **Minimap with canvas** | Custom Canvas2D minimap is faster and more responsive than a second vis-network instance |
+| **Minimap with canvas** | Custom Canvas2D minimap for fast, responsive navigation |
 | **Entity font size 0** | Entities are invisible by default (too numerous) but still present in the graph for hover/click interaction |
