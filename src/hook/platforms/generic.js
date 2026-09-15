@@ -1,71 +1,142 @@
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const START = '<!-- codebase-vis:hook:start -->';
-const END = '<!-- codebase-vis:hook:end -->';
-const BLOCK = `${START}
-## codebase-vis Graph-First Search
-
-Before running \`grep\`, \`rg\`, \`find\`, \`ag\`, or \`ack\`, check \`codebase-out/graph.json\` for the symbol.
-
-If found, use the graph result inline and skip the shell search.
-
-Escape hatch: append \`# --graph-tried\` to force raw search.
-
-When \`codebase-out/graph.json\` is missing, run \`codebase-vis generate\` first.
-
-${END}
-`;
-
-function escapeRegExp(s) {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-async function installMarkdown(cwd, filename) {
-  const dest = path.join(path.resolve(cwd || process.cwd()), filename);
-  const root = path.resolve(cwd || process.cwd()) + path.sep;
-  const resolved = path.resolve(dest);
-  if (!resolved.startsWith(root) && resolved !== path.resolve(cwd || process.cwd())) {
-    throw new Error(`Path outside cwd: ${dest}`);
+function sandboxCheck(cwd, target) {
+  const resolved = path.resolve(target);
+  const root = path.resolve(cwd) + path.sep;
+  if (!resolved.startsWith(root) && resolved !== path.resolve(cwd)) {
+    throw new Error(`Path outside cwd: ${target}`);
   }
-  let existing = '';
-  try {
-    existing = await fs.readFile(dest, 'utf-8');
-  } catch {}
-  if (existing.includes(START)) return;
-  await fs.mkdir(path.dirname(dest), { recursive: true });
-  const sep = existing === '' || existing.endsWith('\n') ? '' : '\n';
-  await fs.writeFile(dest, existing + sep + BLOCK + '\n', 'utf-8');
 }
 
-async function uninstallMarkdown(cwd, filename) {
-  const dest = path.join(path.resolve(cwd || process.cwd()), filename);
+export async function installGemini(cwd) {
+  const root = path.resolve(cwd || process.cwd());
+  const src = path.join(path.dirname(fileURLToPath(import.meta.url)), '../templates/gemini-hook.cjs');
+  const hookDest = path.join(root, '.gemini', 'hooks', 'codebase-vis-hook.cjs');
+  sandboxCheck(root, hookDest);
+  const content = await fs.readFile(src, 'utf-8');
+  await fs.mkdir(path.dirname(hookDest), { recursive: true });
+  await fs.writeFile(hookDest, content, { mode: 0o755 });
+
+  const configPath = path.join(root, '.gemini', 'settings.json');
+  sandboxCheck(root, configPath);
+  let config = { hooks: {} };
+  try { config = JSON.parse(await fs.readFile(configPath, 'utf-8')); } catch {}
+  config.hooks = config.hooks || {};
+  config.hooks.BeforeTool = config.hooks.BeforeTool || [];
+  const alreadyInstalled = config.hooks.BeforeTool.some(
+    (h) => h.hooks?.some((hook) => hook.command?.includes('codebase-vis-hook'))
+  );
+  if (!alreadyInstalled) {
+    config.hooks.BeforeTool.push({
+      matcher: 'run_shell_command',
+      hooks: [{
+        type: 'command',
+        command: '.gemini/hooks/codebase-vis-hook.cjs',
+        name: 'codebase-vis-graph-search',
+      }],
+    });
+    await fs.mkdir(path.dirname(configPath), { recursive: true });
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2));
+  }
+}
+
+export function isInstalledGemini(cwd) {
   try {
-    let content = await fs.readFile(dest, 'utf-8');
-    const re = new RegExp(`\\n?${escapeRegExp(START)}[\\s\\S]*?${escapeRegExp(END)}\\n?`, 'g');
-    content = content.replace(re, '\n');
-    content = content.replace(/^\n+/, '');
-    content = content.replace(/\n+$/, '');
-    if (content.trim() === '') {
-      try { await fs.unlink(dest); } catch {}
-      return;
+    const hookPath = path.join(path.resolve(cwd || process.cwd()), '.gemini', 'hooks', 'codebase-vis-hook.cjs');
+    fsSync.statSync(hookPath);
+    return true;
+  } catch { return false; }
+}
+
+export async function uninstallGemini(cwd) {
+  const root = path.resolve(cwd || process.cwd());
+  const hookPath = path.join(root, '.gemini', 'hooks', 'codebase-vis-hook.cjs');
+  try { await fs.unlink(hookPath); } catch {}
+
+  const configPath = path.join(root, '.gemini', 'settings.json');
+  try {
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.hooks.BeforeTool = (config.hooks.BeforeTool || []).filter(
+      (h) => !h.hooks?.some((hook) => hook.command?.includes('codebase-vis-hook'))
+    );
+    if (config.hooks.BeforeTool.length === 0) delete config.hooks.BeforeTool;
+    if (Object.keys(config.hooks).length === 0) delete config.hooks;
+    if (Object.keys(config).length === 0) {
+      await fs.unlink(configPath);
+    } else {
+      await fs.writeFile(configPath, JSON.stringify(config, null, 2));
     }
-    await fs.writeFile(dest, content + '\n', 'utf-8');
+  } catch {}
+
+  try {
+    const entries = await fs.readdir(path.join(root, '.gemini', 'hooks'));
+    if (entries.length === 0) await fs.rmdir(path.join(root, '.gemini', 'hooks'));
   } catch {}
 }
 
-function isInstalledMarkdown(cwd, filename) {
-  try {
-    return fsSync.readFileSync(path.join(path.resolve(cwd || process.cwd()), filename), 'utf-8').includes(START);
-  } catch {
-    return false;
+export async function installCopilot(cwd) {
+  const root = path.resolve(cwd || process.cwd());
+  const src = path.join(path.dirname(fileURLToPath(import.meta.url)), '../templates/copilot-hook.cjs');
+  const hookDest = path.join(root, '.github', 'hooks', 'codebase-vis-hook.cjs');
+  sandboxCheck(root, hookDest);
+  const content = await fs.readFile(src, 'utf-8');
+  await fs.mkdir(path.dirname(hookDest), { recursive: true });
+  await fs.writeFile(hookDest, content, { mode: 0o755 });
+
+  const configPath = path.join(root, '.github', 'hooks', 'codebase-vis.json');
+  sandboxCheck(root, configPath);
+  let config = { version: 1, hooks: {} };
+  try { config = JSON.parse(await fs.readFile(configPath, 'utf-8')); } catch {}
+  config.version = 1;
+  config.hooks = config.hooks || {};
+  config.hooks.preToolUse = config.hooks.preToolUse || [];
+  const alreadyInstalled = config.hooks.preToolUse.some(
+    (h) => h.bash?.includes('codebase-vis-hook')
+  );
+  if (!alreadyInstalled) {
+    config.hooks.preToolUse.push({
+      type: 'command',
+      bash: '.github/hooks/codebase-vis-hook.cjs',
+      matcher: 'bash',
+    });
+    await fs.mkdir(path.dirname(configPath), { recursive: true });
+    await fs.writeFile(configPath, JSON.stringify(config, null, 2));
   }
 }
 
-export const installCodex = (cwd) => installMarkdown(cwd, 'AGENTS.md');
-export const installGemini = (cwd) => installMarkdown(cwd, 'GEMINI.md');
-export const uninstallCodex = (cwd) => uninstallMarkdown(cwd, 'AGENTS.md');
-export const uninstallGemini = (cwd) => uninstallMarkdown(cwd, 'GEMINI.md');
-export const isInstalledCodex = (cwd) => isInstalledMarkdown(cwd, 'AGENTS.md');
-export const isInstalledGemini = (cwd) => isInstalledMarkdown(cwd, 'GEMINI.md');
+export function isInstalledCopilot(cwd) {
+  try {
+    const hookPath = path.join(path.resolve(cwd || process.cwd()), '.github', 'hooks', 'codebase-vis-hook.cjs');
+    fsSync.statSync(hookPath);
+    return true;
+  } catch { return false; }
+}
+
+export async function uninstallCopilot(cwd) {
+  const root = path.resolve(cwd || process.cwd());
+  const hookPath = path.join(root, '.github', 'hooks', 'codebase-vis-hook.cjs');
+  try { await fs.unlink(hookPath); } catch {}
+
+  const configPath = path.join(root, '.github', 'hooks', 'codebase-vis.json');
+  try {
+    const config = JSON.parse(await fs.readFile(configPath, 'utf-8'));
+    config.hooks.preToolUse = (config.hooks.preToolUse || []).filter(
+      (h) => !h.bash?.includes('codebase-vis-hook')
+    );
+    if (config.hooks.preToolUse.length === 0) delete config.hooks.preToolUse;
+    if (Object.keys(config.hooks).length === 0) delete config.hooks;
+    if (Object.keys(config).length <= 1 && config.version) {
+      await fs.unlink(configPath);
+    } else {
+      await fs.writeFile(configPath, JSON.stringify(config, null, 2));
+    }
+  } catch {}
+
+  try {
+    const entries = await fs.readdir(path.join(root, '.github', 'hooks'));
+    if (entries.length === 0) await fs.rmdir(path.join(root, '.github', 'hooks'));
+  } catch {}
+}
