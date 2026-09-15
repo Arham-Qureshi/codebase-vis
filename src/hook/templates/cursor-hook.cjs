@@ -44,7 +44,7 @@ async function main() {
   let payload;
   try { payload = JSON.parse(raw); } catch { process.exit(0); }
 
-  const command = payload?.command || '';
+  const command = payload?.command || payload?.tool_input?.command || '';
   const cwd = payload?.workspace_roots?.[0] || payload?.cwd || process.cwd();
 
   if (!/\b(grep|rg|ripgrep|find|ag|ack)\b/.test(command)) process.exit(0);
