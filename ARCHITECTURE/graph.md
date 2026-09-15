@@ -338,7 +338,7 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    GRAPH["Graphology Graph<br/>(with community, color,<br/>language, size attrs)"] --> EXPORT["graph.export()<br/>→ JSON-compatible object"]
+    GRAPH["Graphology Graph<br/>(with community, color,<br/>language, size attrs)"] --> EXPORT["forEachNode() / forEachEdge()<br/>→ streaming JSON export"]
 
     EXPORT --> STRINGIFY["JSON.stringify(data, null, 2)"]
 
@@ -347,7 +347,7 @@ flowchart LR
     SAFE --> GJ["graph.json"]
 ```
 
-The `graph.export()` call serializes the entire graphology graph into the standard graphology JSON format, which includes all nodes with their attributes, all edges with their attributes, and graph options (`type: mixed`, `multi: true`, `allowSelfLoops: true`).
+The `exportGraphToJson()` function writes JSON incrementally by iterating over the graph with `forEachNode()` and `forEachEdge()`. Dead attributes (`x`, `y`, `size`, `dependencies`, `depth`, `parent`, `scriptName` from nodes; `depth`, `linkText` from edges) are stripped during export. This avoids materializing the entire graph as a plain JavaScript object, which `graph.export()` would do — ~60-100MB for large codebases.
 
 ## Attribute Summary
 
