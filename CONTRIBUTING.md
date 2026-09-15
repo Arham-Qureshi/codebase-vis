@@ -28,7 +28,7 @@ src/
     shared.js
   parser/                  — tree-sitter language modules + worker pool
     index.js               — File dispatch + batch parser
-    parse-worker.js        — Forked child process worker
+    parse-worker.js        — Worker thread (worker_threads)
     javascript.js          — JS grammar + dependency/entity extractors
     typescript.js          — TS grammar + dependency/entity extractors
     python.js              — Python grammar + dependency/entity extractors
@@ -49,7 +49,7 @@ src/
   utils/
     traversal.js             — File discovery with ignore support
     cache.js                 — Incremental parse cache (mtime + size)
-    worker-pool.js           — Fork-based worker pool
+    worker-pool.js           — Worker thread pool with crash recovery
     file-system.js           — Sandboxed file writes
 test/                        — Node test runner tests (node --test)
 USAGE.md                     — Command examples with screenshots
